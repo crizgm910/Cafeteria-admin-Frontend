@@ -237,13 +237,11 @@ body.kitchen-mode .kanban-col { max-height: calc(100vh - 150px); }
     .col-header { border-radius:6px; margin-bottom:10px; }
     .admin-header { flex-direction: column; gap:10px; align-items:flex-start;}
     .header-status { width:100%; justify-content:space-between; flex-wrap:wrap;}
-}/ *   L o g i n   O v e r l a y   * / 
- . l o g i n - o v e r l a y   {   p o s i t i o n :   f i x e d ;   t o p :   0 ;   l e f t :   0 ;   w i d t h :   1 0 0 % ;   h e i g h t :   1 0 0 % ;   b a c k g r o u n d :   v a r ( - - c o l o r - b g ) ;   d i s p l a y :   f l e x ;   j u s t i f y - c o n t e n t :   c e n t e r ;   a l i g n - i t e m s :   c e n t e r ;   z - i n d e x :   9 9 9 9 ;   o p a c i t y :   0 ;   p o i n t e r - e v e n t s :   n o n e ;   t r a n s i t i o n :   0 . 3 s   e a s e ;   } 
- . l o g i n - o v e r l a y . a c t i v e   {   o p a c i t y :   1 ;   p o i n t e r - e v e n t s :   a u t o ;   } 
- . l o g i n - c a r d   {   b a c k g r o u n d :   v a r ( - - c o l o r - s u r f a c e ) ;   b o r d e r :   1 p x   s o l i d   v a r ( - - c o l o r - b o r d e r ) ;   p a d d i n g :   4 0 p x ;   b o r d e r - r a d i u s :   8 p x ;   w i d t h :   9 0 % ;   m a x - w i d t h :   4 0 0 p x ;   b o x - s h a d o w :   0   1 0 p x   4 0 p x   r g b a ( 0 , 0 , 0 , 0 . 8 ) ;   } 
-  
- . h i d d e n   {   d i s p l a y :   n o n e   ! i m p o r t a n t ;   } 
- . a u t h - v i e w   {   m i n - h e i g h t :   1 0 0 v h ;   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   j u s t i f y - c o n t e n t :   c e n t e r ;   a l i g n - i t e m s :   c e n t e r ;   b a c k g r o u n d :   v a r ( - - c o l o r - b g ) ;   } 
- . d a s h b o a r d - v i e w   {   m i n - h e i g h t :   1 0 0 v h ;   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   } 
- . d a s h b o a r d - m a i n   {   f l e x :   1 ;   o v e r f l o w :   h i d d e n ;   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   }  
- 
+
+/* Login Overlay */
+.login-card { background: var(--color-surface); border: 1px solid var(--color-border); padding: 40px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+
+.hidden { display: none !important; }
+.auth-view { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--color-bg); }
+.dashboard-view { min-height: 100vh; display: flex; flex-direction: column; }
+.dashboard-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
