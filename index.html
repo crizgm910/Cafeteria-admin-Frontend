@@ -3,18 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TGR Admin - Panel de Empleados</title>
+    <title>TGR Admin - Staff Portal</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <header class="admin-header">
         <div class="logo">TGR <span>Staff Portal</span></div>
-        <nav class="admin-nav">
-            <button class="nav-btn active" id="tab-orders">Pedidos (Kitchen)</button>
-            <button class="nav-btn" id="tab-reservations">Reservas</button>
-        </nav>
+        <div class="header-status">
+            <span class="connection-status" id="connection-status"><span class="dot green"></span> Conectado</span>
+            <span class="last-updated" id="last-updated">Actualizado: hace 0s</span>
+            <button class="btn-refresh" id="btn-manual-refresh" title="Actualizar ahora">↻</button>
+            <span class="current-time" id="current-time">00:00</span>
+            <div class="user-role">
+                <span class="role-icon">👤</span> Barista
+            </div>
+        </div>
     </header>
+
+    <nav class="admin-nav-main">
+        <button class="nav-btn active" id="tab-orders">Pedidos (Kitchen)</button>
+        <button class="nav-btn" id="tab-reservations">Reservas</button>
+    </nav>
 
     <main class="admin-container">
         <!-- VISTA PEDIDOS (KANBAN) -->
@@ -24,53 +34,69 @@
             <div class="kpi-container">
                 <div class="kpi-card">
                     <span class="kpi-title">Ventas de Hoy</span>
-                    <span class="kpi-value" id="kpi-sales">$0.00</span>
+                    <span class="kpi-value skeleton-text" id="kpi-sales">-</span>
                 </div>
                 <div class="kpi-card">
                     <span class="kpi-title">Completados</span>
-                    <span class="kpi-value" id="kpi-completed">0</span>
+                    <span class="kpi-value skeleton-text" id="kpi-completed">-</span>
                 </div>
                 <div class="kpi-card">
                     <span class="kpi-title">Pendientes</span>
-                    <span class="kpi-value" id="kpi-pending">0</span>
+                    <span class="kpi-value skeleton-text" id="kpi-pending">-</span>
                 </div>
                 <div class="kpi-card">
                     <span class="kpi-title">Cancelados</span>
-                    <span class="kpi-value" id="kpi-cancelled">0</span>
+                    <span class="kpi-value skeleton-text" id="kpi-cancelled">-</span>
                 </div>
                 <div class="kpi-card">
                     <span class="kpi-title">Ticket Promedio</span>
-                    <span class="kpi-value" id="kpi-average">$0.00</span>
+                    <span class="kpi-value skeleton-text" id="kpi-average">-</span>
                 </div>
             </div>
 
             <!-- Buscador y Filtros -->
             <div class="filters-bar">
-                <input type="text" id="search-orders" placeholder="Buscar por # Pedido, Nombre o Teléfono..." class="search-input">
-                <div class="filter-chips">
+                <input type="text" id="search-orders" placeholder="🔍 Buscar por # Pedido, Nombre..." class="search-input">
+                <div class="filter-chips" id="order-filters">
                     <button class="filter-btn active" data-filter="all">Todos</button>
-                    <button class="filter-btn" data-filter="pickup">Para Recoger</button>
-                    <button class="filter-btn" data-filter="local">En Local</button>
+                    <button class="filter-btn" data-filter="takeout">Para Recoger</button>
+                    <button class="filter-btn" data-filter="dine_in">En Local</button>
                     <button class="filter-btn" data-filter="delivery">Envío</button>
+                    <button class="filter-btn danger-filter" data-filter="overdue">⚠️ Atrasados</button>
                 </div>
+            </div>
+
+            <!-- Mobile Tabs for Kanban -->
+            <div class="mobile-kanban-tabs">
+                <button class="mobile-tab active" data-col="pending">Nuevos (<span id="mob-badge-pending">0</span>)</button>
+                <button class="mobile-tab" data-col="preparing">Prep (<span id="mob-badge-preparing">0</span>)</button>
+                <button class="mobile-tab" data-col="ready">Listos (<span id="mob-badge-ready">0</span>)</button>
             </div>
 
             <div class="kanban-board">
                 <!-- Columna Pendientes -->
-                <div class="kanban-col">
+                <div class="kanban-col active-mobile" id="col-wrap-pending">
                     <div class="col-header">
-                        <h2>Nuevos (Pendientes)</h2>
+                        <div>
+                            <h2>Nuevos</h2>
+                            <p class="col-desc">Pendientes de aceptar</p>
+                        </div>
                         <span class="badge" id="badge-pending">0</span>
                     </div>
                     <div class="col-body" id="col-pending">
                         <!-- JS Cards -->
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
                     </div>
                 </div>
 
                 <!-- Columna Preparando -->
-                <div class="kanban-col preparing-col">
+                <div class="kanban-col preparing-col" id="col-wrap-preparing">
                     <div class="col-header">
-                        <h2>Preparando</h2>
+                        <div>
+                            <h2>Preparando</h2>
+                            <p class="col-desc">En proceso de cocina</p>
+                        </div>
                         <span class="badge" id="badge-preparing">0</span>
                     </div>
                     <div class="col-body" id="col-preparing">
@@ -79,9 +105,12 @@
                 </div>
 
                 <!-- Columna Listos -->
-                <div class="kanban-col ready-col">
+                <div class="kanban-col ready-col" id="col-wrap-ready">
                     <div class="col-header">
-                        <h2>Listos para Entrega</h2>
+                        <div>
+                            <h2>Listos</h2>
+                            <p class="col-desc">Esperando entrega</p>
+                        </div>
                         <span class="badge" id="badge-ready">0</span>
                     </div>
                     <div class="col-body" id="col-ready">
@@ -93,8 +122,9 @@
 
         <!-- VISTA RESERVAS -->
         <section id="view-reservations" class="admin-view">
-            <div class="reservations-header">
-                <h2>Control de Reservas</h2>
+            <div class="filters-bar">
+                <h2>Gestión de Reservas</h2>
+                <!-- Aquí dejaremos espacio futuro para el filtro backend -->
             </div>
             <div class="reservations-list" id="reservations-list">
                 <!-- JS Rows -->
@@ -121,15 +151,15 @@
     <!-- Modal Ticket de Cocina -->
     <div id="kitchen-ticket-modal" class="modal-overlay">
         <div class="modal-content kitchen-modal">
-            <div class="modal-header">
-                <h2>Ticket de Cocina <span id="kitchen-ticket-id">#000</span></h2>
-                <button class="close-modal" id="close-kitchen-modal">&times;</button>
+            <div class="modal-header no-print">
+                <h2 style="color:black">Vista de Impresión</h2>
+                <button class="close-modal" id="close-kitchen-modal" style="color:black">&times;</button>
             </div>
             <div class="kitchen-ticket-body" id="kitchen-ticket-body">
                 <!-- JS Render Formato Simple -->
             </div>
-            <div class="modal-footer">
-                <button class="btn-primary" onclick="window.print()">Imprimir Ticket</button>
+            <div class="modal-footer no-print">
+                <button class="btn-primary" onclick="window.print()">🖨️ Imprimir Ticket</button>
             </div>
         </div>
     </div>

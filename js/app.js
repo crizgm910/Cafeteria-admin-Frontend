@@ -5,72 +5,55 @@ let allTickets = [];
 let allReservations = [];
 let currentFilter = 'all';
 let searchQuery = '';
+let isFetching = false;
 let autoRefreshInterval;
+let lastUpdateDate = new Date();
 
 // DOM Elements
+const eTime = document.getElementById('current-time');
+const eLastUpdated = document.getElementById('last-updated');
+const eConnStatus = document.getElementById('connection-status');
+const btnManualRefresh = document.getElementById('btn-manual-refresh');
+const toastContainer = document.getElementById('toast-container');
+
+// Tabs & Views
 const tabOrders = document.getElementById('tab-orders');
 const tabReservations = document.getElementById('tab-reservations');
 const viewOrders = document.getElementById('view-orders');
 const viewReservations = document.getElementById('view-reservations');
 
+// Mobile Tabs
+const mobileTabs = document.querySelectorAll('.mobile-tab');
+const kanbanCols = {
+    pending: document.getElementById('col-wrap-pending'),
+    preparing: document.getElementById('col-wrap-preparing'),
+    ready: document.getElementById('col-wrap-ready')
+};
+
+// Column Bodies
 const colPending = document.getElementById('col-pending');
 const colPreparing = document.getElementById('col-preparing');
 const colReady = document.getElementById('col-ready');
 
-const badgePending = document.getElementById('badge-pending');
-const badgePreparing = document.getElementById('badge-preparing');
-const badgeReady = document.getElementById('badge-ready');
-
-const reservationsList = document.getElementById('reservations-list');
-
-// KPIs Elements
-const kpiSales = document.getElementById('kpi-sales');
-const kpiCompleted = document.getElementById('kpi-completed');
-const kpiPending = document.getElementById('kpi-pending');
-const kpiCancelled = document.getElementById('kpi-cancelled');
-const kpiAverage = document.getElementById('kpi-average');
-
-// Filter & Search
-const searchInput = document.getElementById('search-orders');
-const filterBtns = document.querySelectorAll('.filter-btn');
-
 // Modals
 const detailModal = document.getElementById('order-detail-modal');
 const kitchenModal = document.getElementById('kitchen-ticket-modal');
-const closeDetail = document.getElementById('close-detail-modal');
-const closeKitchen = document.getElementById('close-kitchen-modal');
 const modalDetailBody = document.getElementById('modal-detail-body');
 const modalDetailActions = document.getElementById('modal-detail-actions');
 const kitchenTicketBody = document.getElementById('kitchen-ticket-body');
-const toastContainer = document.getElementById('toast-container');
 
-
-/* ===========================
-   NAVIGATION & UI
-=========================== */
-tabOrders.onclick = () => {
-    tabOrders.classList.add('active');
-    tabReservations.classList.remove('active');
-    viewOrders.classList.add('active-view');
-    viewReservations.classList.remove('active-view');
-    fetchTickets();
-};
-
-tabReservations.onclick = () => {
-    tabReservations.classList.add('active');
-    tabOrders.classList.remove('active');
-    viewReservations.classList.add('active-view');
-    viewOrders.classList.remove('active-view');
-    fetchReservations();
-};
-
-closeDetail.onclick = () => detailModal.classList.remove('active');
-closeKitchen.onclick = () => kitchenModal.classList.remove('active');
+/* ==========================================
+   UTILITIES
+========================================== */
+const safeNum = val => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
+const safeStr = (val, fallback) => (val === null || val === undefined || val === '') ? fallback : val;
+const formatMoney = val => `$${safeNum(val).toFixed(2)}`;
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+    let icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+    toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
     toastContainer.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -78,182 +61,250 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// Utility: Safe values
-const safeNum = (val) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
-const safeStr = (val, fallback) => (val === null || val === undefined || val === '') ? fallback : val;
-const formatMoney = (val) => `$${safeNum(val).toFixed(2)}`;
-
-// Time elapsed string
-function timeElapsedString(dateString) {
-    if (!dateString) return '';
-    const start = new Date(dateString);
+function updateClocks() {
     const now = new Date();
-    const diff = Math.floor((now - start) / 60000); // mins
-    if (diff < 1) return 'Hace menos de 1 min';
-    if (diff < 60) return `Hace ${diff} min`;
-    const hours = Math.floor(diff / 60);
-    return `Hace ${hours} h`;
+    eTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    if (lastUpdateDate) {
+        const diffSecs = Math.floor((now - lastUpdateDate) / 1000);
+        eLastUpdated.textContent = `Actualizado: hace ${diffSecs}s`;
+    }
 }
+setInterval(updateClocks, 1000);
 
-/* ===========================
-   TICKETS (ORDERS) LOGIC
-=========================== */
-async function fetchTickets() {
-    try {
-        const response = await fetch(`${API_BASE}/tickets`);
-        allTickets = await response.json();
-        
-        // Cache to localStorage
-        localStorage.setItem('tgr_tickets', JSON.stringify(allTickets));
-        
-        applyFiltersAndRender();
-        calculateKPIs();
-    } catch (error) {
-        console.error('API Error, trying local storage...', error);
-        const local = localStorage.getItem('tgr_tickets');
-        if (local) {
-            allTickets = JSON.parse(local);
-            showToast('Modo sin conexión activo (Datos cacheados)', 'error');
-            applyFiltersAndRender();
-            calculateKPIs();
-        }
+function setConnectionStatus(isOnline) {
+    if (isOnline) {
+        eConnStatus.innerHTML = '<span class="dot green"></span> Conectado';
+    } else {
+        eConnStatus.innerHTML = '<span class="dot red"></span> API Desconectada';
     }
 }
 
-// Search and Filter Listeners
-searchInput.addEventListener('input', (e) => {
-    searchQuery = e.target.value.toLowerCase();
-    applyFiltersAndRender();
+/* ==========================================
+   NAVIGATION & MOBILE
+========================================== */
+tabOrders.onclick = () => switchView('orders');
+tabReservations.onclick = () => switchView('reservations');
+
+function switchView(view) {
+    tabOrders.classList.remove('active');
+    tabReservations.classList.remove('active');
+    viewOrders.classList.remove('active-view');
+    viewReservations.classList.remove('active-view');
+    
+    if (view === 'orders') {
+        tabOrders.classList.add('active');
+        viewOrders.classList.add('active-view');
+        fetchOrders(true);
+    } else {
+        tabReservations.classList.add('active');
+        viewReservations.classList.add('active-view');
+        fetchReservations(true);
+    }
+}
+
+mobileTabs.forEach(btn => {
+    btn.onclick = (e) => {
+        mobileTabs.forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        Object.values(kanbanCols).forEach(col => col.classList.remove('active-mobile'));
+        const colKey = e.target.dataset.col;
+        kanbanCols[colKey].classList.add('active-mobile');
+    };
 });
 
-filterBtns.forEach(btn => {
+document.getElementById('close-detail-modal').onclick = () => detailModal.classList.remove('active');
+document.getElementById('close-kitchen-modal').onclick = () => kitchenModal.classList.remove('active');
+
+/* ==========================================
+   ORDERS LOGIC (KDS)
+========================================== */
+btnManualRefresh.onclick = () => fetchOrders(true);
+
+document.getElementById('search-orders').addEventListener('input', (e) => {
+    searchQuery = e.target.value.toLowerCase();
+    renderOrders();
+});
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        filterBtns.forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         currentFilter = e.target.dataset.filter;
-        applyFiltersAndRender();
+        renderOrders();
     });
 });
 
-function applyFiltersAndRender() {
-    // 1. Filter
+async function fetchOrders(showLoading = false) {
+    if (isFetching) return;
+    isFetching = true;
+
+    if (showLoading && allTickets.length === 0) {
+        // Show skeleton only if empty
+        const skeletons = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
+        colPending.innerHTML = skeletons;
+        colPreparing.innerHTML = skeletons;
+        colReady.innerHTML = skeletons;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/tickets`);
+        if (!response.ok) throw new Error('API Response not OK');
+        const newData = await response.json();
+        
+        // Check for new orders to toast
+        if (allTickets.length > 0) {
+            const newIds = newData.map(t => t.id);
+            const oldIds = allTickets.map(t => t.id);
+            const freshlyAdded = newIds.filter(id => !oldIds.includes(id));
+            if (freshlyAdded.length > 0) showToast(`${freshlyAdded.length} nuevo(s) pedido(s) recibido(s)`, 'success');
+        }
+
+        allTickets = newData;
+        localStorage.setItem('tgr_kds_tickets', JSON.stringify(allTickets));
+        setConnectionStatus(true);
+        lastUpdateDate = new Date();
+        renderOrders();
+        renderKPIs();
+    } catch (error) {
+        console.error('Fetch Orders Error:', error);
+        setConnectionStatus(false);
+        const cached = localStorage.getItem('tgr_kds_tickets');
+        if (cached) {
+            allTickets = JSON.parse(cached);
+            if (showLoading) showToast('Mostrando datos en caché', 'warning');
+            renderOrders();
+            renderKPIs();
+        } else {
+            showToast('Error de conexión a la API', 'error');
+        }
+    } finally {
+        isFetching = false;
+    }
+}
+
+function renderOrders() {
+    let counts = { pending: 0, preparing: 0, ready: 0 };
+    
+    // Filter logic
     let filtered = allTickets.filter(t => {
-        // Text Search
-        const searchMatch = 
-            (t.ticket_number && t.ticket_number.toLowerCase().includes(searchQuery)) ||
-            (t.id && t.id.toString().includes(searchQuery));
-            // Add customer name search if present in data...
+        const matchText = (t.ticket_number && String(t.ticket_number).toLowerCase().includes(searchQuery)) ||
+                          (t.id && String(t.id).includes(searchQuery));
+        
+        let matchFilter = true;
+        if (currentFilter === 'takeout') matchFilter = t.order_type === 'takeout';
+        if (currentFilter === 'dine_in') matchFilter = t.order_type === 'dine_in';
+        if (currentFilter === 'delivery') matchFilter = t.order_type === 'delivery';
+        if (currentFilter === 'overdue') {
+            const isOverdue = (new Date() - new Date(t.created_at)) > (15 * 60000);
+            matchFilter = isOverdue && !['delivered','cancelled'].includes(t.status);
+        }
 
-        // Button Filter
-        let filterMatch = true;
-        if (currentFilter === 'pickup') filterMatch = t.order_type === 'takeout'; // Map based on your DB
-        if (currentFilter === 'local') filterMatch = t.order_type === 'dine_in';
-        if (currentFilter === 'delivery') filterMatch = t.order_type === 'delivery';
-
-        return searchMatch && filterMatch;
+        return matchText && matchFilter;
     });
 
-    // 2. Clear Columns
-    colPending.innerHTML = '';
-    colPreparing.innerHTML = '';
-    colReady.innerHTML = '';
-    
-    let counts = { pending: 0, preparing: 0, ready: 0 };
+    // To prevent DOM flickering, we will generate HTML strings and then set innerHTML
+    // In a real huge app, we'd use virtual DOM (React/Vue), but string building is fast enough for Vanilla
+    let htmlPending = '';
+    let htmlPreparing = '';
+    let htmlReady = '';
 
-    // 3. Render Cards
     filtered.forEach(ticket => {
+        const cardHtml = getTicketCardHTML(ticket);
         if (['pending', 'paid'].includes(ticket.status)) {
-            colPending.appendChild(createTicketCard(ticket));
+            htmlPending += cardHtml;
             counts.pending++;
         } else if (ticket.status === 'preparing') {
-            colPreparing.appendChild(createTicketCard(ticket));
+            htmlPreparing += cardHtml;
             counts.preparing++;
         } else if (ticket.status === 'ready') {
-            colReady.appendChild(createTicketCard(ticket));
+            htmlReady += cardHtml;
             counts.ready++;
         }
     });
 
-    // Empty States
-    if(counts.pending === 0) colPending.innerHTML = '<div class="empty-state">No hay pedidos nuevos.</div>';
-    if(counts.preparing === 0) colPreparing.innerHTML = '<div class="empty-state">No hay pedidos en preparación.</div>';
-    if(counts.ready === 0) colReady.innerHTML = '<div class="empty-state">No hay pedidos listos.</div>';
+    colPending.innerHTML = counts.pending > 0 ? htmlPending : '<div class="empty-state"><div class="empty-icon">📝</div>No hay pedidos nuevos.<br><small>Los pedidos confirmados aparecerán aquí automáticamente.</small></div>';
+    colPreparing.innerHTML = counts.preparing > 0 ? htmlPreparing : '<div class="empty-state"><div class="empty-icon">🍳</div>No hay pedidos en preparación.<br><small>Cuando un pedido sea aceptado, se moverá a esta columna.</small></div>';
+    colReady.innerHTML = counts.ready > 0 ? htmlReady : '<div class="empty-state"><div class="empty-icon">🛍️</div>No hay pedidos listos.<br><small>Los pedidos terminados aparecerán aquí para entrega.</small></div>';
 
-    badgePending.textContent = counts.pending;
-    badgePreparing.textContent = counts.preparing;
-    badgeReady.textContent = counts.ready;
+    document.getElementById('badge-pending').textContent = counts.pending;
+    document.getElementById('badge-preparing').textContent = counts.preparing;
+    document.getElementById('badge-ready').textContent = counts.ready;
+    document.getElementById('mob-badge-pending').textContent = counts.pending;
+    document.getElementById('mob-badge-preparing').textContent = counts.preparing;
+    document.getElementById('mob-badge-ready').textContent = counts.ready;
 }
 
-function calculateKPIs() {
-    let sales = 0;
-    let completed = 0;
-    let pending = 0;
-    let cancelled = 0;
-
-    allTickets.forEach(t => {
-        if (t.status === 'delivered') {
-            completed++;
-            sales += safeNum(t.total);
-        } else if (t.status === 'cancelled') {
-            cancelled++;
-        } else {
-            pending++;
-        }
-    });
-
-    const avg = completed > 0 ? (sales / completed) : 0;
-
-    kpiSales.textContent = formatMoney(sales);
-    kpiCompleted.textContent = completed;
-    kpiPending.textContent = pending;
-    kpiCancelled.textContent = cancelled;
-    kpiAverage.textContent = formatMoney(avg);
-}
-
-function createTicketCard(ticket) {
-    const div = document.createElement('div');
-    div.className = 'ticket-card';
-    
-    // Fallbacks
+function getTicketCardHTML(ticket) {
     const tNum = safeStr(ticket.ticket_number, ticket.id);
     const time = new Date(ticket.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const elapsed = timeElapsedString(ticket.created_at);
-    const isOverdue = (new Date() - new Date(ticket.created_at)) > (15 * 60000); // 15 mins
     const totalMoney = formatMoney(ticket.total);
     const itemCount = ticket.items ? ticket.items.length : 0;
-
-    // Service badge
-    let serviceBadge = '<span class="badge-service">Local</span>';
-    if(ticket.order_type === 'takeout') serviceBadge = '<span class="badge-service" style="background:#2196f3">Llevar</span>';
     
-    // Status Logic
-    let nextStatus = '';
-    let actionText = '';
-    if (['pending', 'paid'].includes(ticket.status)) { nextStatus = 'preparing'; actionText = 'Empezar Prep.'; }
-    else if (ticket.status === 'preparing') { nextStatus = 'ready'; actionText = 'Marcar Listo'; }
-    else if (ticket.status === 'ready') { nextStatus = 'delivered'; actionText = 'Entregar'; }
+    const diffMins = Math.floor((new Date() - new Date(ticket.created_at)) / 60000);
+    const isOverdue = diffMins >= 15;
+    const timeText = diffMins < 1 ? 'Ahora' : `Hace ${diffMins} min`;
 
-    div.innerHTML = `
-        <div class="ticket-header">
-            <div>
-                ${serviceBadge} <span class="ticket-id">#${tNum}</span>
+    let serviceName = 'Local'; let serviceColor = '#4caf50';
+    if(ticket.order_type === 'takeout') { serviceName = 'Llevar'; serviceColor = '#2196f3'; }
+    else if(ticket.order_type === 'delivery') { serviceName = 'Envío'; serviceColor = '#9c27b0'; }
+
+    let hasNotes = false;
+    if (ticket.items) hasNotes = ticket.items.some(i => i.notes && i.notes.trim() !== '');
+
+    let btnPrimary = '';
+    if (['pending', 'paid'].includes(ticket.status)) btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'preparing')">Aceptar (Cocinar)</button>`;
+    else if (ticket.status === 'preparing') btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'ready')">Marcar Listo</button>`;
+    else if (ticket.status === 'ready') btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'delivered')">Entregar Cliente</button>`;
+
+    return `
+        <div class="ticket-card ${isOverdue ? 'is-overdue' : ''}">
+            <div class="tc-head">
+                <div>
+                    <span class="badge-service" style="background:${serviceColor}">${serviceName}</span>
+                    <span class="tc-id">#${tNum}</span>
+                </div>
+                <div class="tc-time ${isOverdue ? 'overdue' : ''}">
+                    ${time}<br>${timeText}
+                </div>
             </div>
-            <span class="ticket-time">${time}</span>
-        </div>
-        <div class="ticket-items">
-            <div>${itemCount} artículos • ${totalMoney}</div>
-            <span class="time-elapsed" style="${isOverdue ? 'color:#ff5252' : 'color:#9e9e9e'}">${elapsed}</span>
-        </div>
-        <div class="ticket-actions" style="gap:10px;">
-            <button class="btn-action" style="background:transparent;border:1px solid var(--color-border);" onclick="openDetailModal('${ticket.id}')">Ver Detalle</button>
-            ${actionText ? `<button class="btn-primary" onclick="updateTicketStatus('${ticket.id}', '${nextStatus}')">${actionText}</button>` : ''}
+            <div class="tc-tags">
+                ${hasNotes ? `<span class="tag tag-notes">NOTAS ESPECIALES</span>` : ''}
+            </div>
+            <div class="tc-body">
+                ${itemCount} artículos • ${totalMoney}
+            </div>
+            <div class="tc-foot">
+                <button class="btn-outline" onclick="openOrderDetail('${ticket.id}')">👁️ Detalle</button>
+                ${btnPrimary}
+            </div>
         </div>
     `;
-    return div;
 }
 
-// Modals Logic
-function openDetailModal(id) {
+function renderKPIs() {
+    let sales = 0, completed = 0, pending = 0, cancelled = 0;
+    allTickets.forEach(t => {
+        if (t.status === 'delivered') { completed++; sales += safeNum(t.total); }
+        else if (t.status === 'cancelled') { cancelled++; }
+        else { pending++; }
+    });
+    const avg = completed > 0 ? (sales / completed) : 0;
+
+    // Remove skeleton class
+    document.querySelectorAll('.kpi-value').forEach(el => el.classList.remove('skeleton-text'));
+    
+    document.getElementById('kpi-sales').textContent = formatMoney(sales);
+    document.getElementById('kpi-completed').textContent = completed;
+    document.getElementById('kpi-pending').textContent = pending;
+    document.getElementById('kpi-cancelled').textContent = cancelled;
+    document.getElementById('kpi-average').textContent = formatMoney(avg);
+}
+
+/* ==========================================
+   ORDER ACTIONS & MODALS
+========================================== */
+window.openOrderDetail = (id) => {
     const ticket = allTickets.find(t => t.id == id || t.ticket_number == id);
     if (!ticket) return;
 
@@ -262,16 +313,15 @@ function openDetailModal(id) {
     let itemsHtml = '';
     if (ticket.items) {
         ticket.items.forEach(item => {
-            const prodName = item.product ? item.product.name : 'Producto Desconocido';
-            const price = formatMoney(item.subtotal);
+            const pName = item.product ? safeStr(item.product.name, 'Desconocido') : 'Desconocido';
             const notes = safeStr(item.notes, '');
             itemsHtml += `
                 <div class="detail-product">
                     <div class="detail-product-info">
-                        <div class="detail-product-name">${item.quantity}x ${prodName}</div>
-                        ${notes ? `<div class="detail-product-meta">Notas: ${notes}</div>` : ''}
+                        <div class="detail-product-name">${item.quantity}x ${pName}</div>
+                        ${notes ? `<div class="detail-product-meta">📝 ${notes}</div>` : ''}
                     </div>
-                    <div>${price}</div>
+                    <div>${formatMoney(item.subtotal)}</div>
                 </div>
             `;
         });
@@ -279,192 +329,168 @@ function openDetailModal(id) {
 
     modalDetailBody.innerHTML = `
         <div class="detail-grid">
-            <div class="detail-item">
-                <span class="detail-label">Cliente</span>
-                <span class="detail-value">Cliente Web (Anon)</span> <!-- Requires user integration in DB -->
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Hora del Pedido</span>
-                <span class="detail-value">${new Date(ticket.created_at).toLocaleString()}</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Método de Pago</span>
-                <span class="detail-value">Tarjeta (Pagado)</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Total</span>
-                <span class="detail-value" style="color:var(--color-gold); font-size:1.2rem">${formatMoney(ticket.total)}</span>
-            </div>
+            <div class="detail-item"><span class="detail-label">Cliente</span><span class="detail-value">Web Cliente</span></div>
+            <div class="detail-item"><span class="detail-label">Hora Pedido</span><span class="detail-value">${new Date(ticket.created_at).toLocaleString()}</span></div>
+            <div class="detail-item"><span class="detail-label">Servicio</span><span class="detail-value" style="text-transform:uppercase">${safeStr(ticket.order_type, 'Local')}</span></div>
+            <div class="detail-item"><span class="detail-label">Pago</span><span class="detail-value">Confirmado</span></div>
+            <div class="detail-item"><span class="detail-label">Estado</span><span class="detail-value" style="text-transform:uppercase; color:var(--color-info)">${ticket.status}</span></div>
+            <div class="detail-item"><span class="detail-label">Total Neto</span><span class="detail-value" style="color:var(--color-gold); font-size:1.2rem">${formatMoney(ticket.total)}</span></div>
         </div>
         <div class="detail-products-list">
-            <h3 style="margin-bottom:10px; font-size:1rem; color:var(--color-text-muted)">Artículos</h3>
-            ${itemsHtml || '<div class="empty-state">Sin artículos registrados.</div>'}
+            <h3 style="margin-bottom:10px; font-size:0.9rem; color:var(--color-text-muted); text-transform:uppercase;">Artículos del Pedido</h3>
+            ${itemsHtml || '<div class="empty-state">No hay artículos</div>'}
         </div>
     `;
 
-    // Dynamic Actions
-    modalDetailActions.innerHTML = `
-        <button class="btn-action" style="margin-right:auto" onclick="printKitchenTicket('${ticket.id}')">Imprimir Cocina</button>
-        ${ticket.status !== 'cancelled' ? `<button class="btn-danger" onclick="updateTicketStatus('${ticket.id}', 'cancelled')">Cancelar</button>` : ''}
-        ${ticket.status === 'preparing' ? `<button class="btn-action" onclick="updateTicketStatus('${ticket.id}', 'pending')">Revertir a Nuevo</button>` : ''}
-        ${ticket.status === 'ready' ? `<button class="btn-action" onclick="updateTicketStatus('${ticket.id}', 'preparing')">Revertir a Prep.</button>` : ''}
-    `;
-
+    // Dynamic actions based on status
+    let actionsHtml = `<button class="btn-outline" style="margin-right:auto" onclick="openKitchenTicket('${ticket.id}')">🖨️ Ticket Cocina</button>`;
+    
+    if (ticket.status !== 'cancelled' && ticket.status !== 'delivered') {
+        actionsHtml += `<button class="btn-danger-outline" onclick="updateOrderStatus('${ticket.id}', 'cancelled', true)">❌ Cancelar Pedido</button>`;
+    }
+    if (ticket.status === 'preparing') {
+        actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'pending', true)">↩️ Revertir a Pendiente</button>`;
+        actionsHtml += `<button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'ready', true)">✅ Marcar Listo</button>`;
+    }
+    if (ticket.status === 'ready') {
+        actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'preparing', true)">↩️ Revertir a Prep.</button>`;
+        actionsHtml += `<button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'delivered', true)">🛍️ Entregar al Cliente</button>`;
+    }
+    
+    modalDetailActions.innerHTML = actionsHtml;
     detailModal.classList.add('active');
-}
+};
 
-function printKitchenTicket(id) {
+window.openKitchenTicket = (id) => {
     const ticket = allTickets.find(t => t.id == id || t.ticket_number == id);
     if (!ticket) return;
 
-    document.getElementById('kitchen-ticket-id').textContent = `#${safeStr(ticket.ticket_number, ticket.id)}`;
-    
     let html = `
-        <div style="text-align:center; margin-bottom:20px;">
-            <h3>TGR KITCHEN</h3>
-            <p>Servicio: ${ticket.order_type === 'takeout' ? 'LLEVAR' : 'LOCAL'}</p>
-            <p>${new Date(ticket.created_at).toLocaleTimeString()}</p>
+        <div class="print-header">
+            <h1 style="margin-bottom:5px;">TGR KITCHEN</h1>
+            <p style="font-size:1.3rem; font-weight:bold;">PEDIDO #${safeStr(ticket.ticket_number, ticket.id)}</p>
+            <p>Servicio: ${String(ticket.order_type).toUpperCase()}</p>
+            <p>Hora: ${new Date(ticket.created_at).toLocaleTimeString()}</p>
         </div>
-        <hr style="margin-bottom:20px;">
     `;
 
     if (ticket.items) {
         ticket.items.forEach(item => {
-            const prodName = item.product ? item.product.name : 'Unknown';
+            const pName = item.product ? safeStr(item.product.name, 'Unknown') : 'Unknown';
             const notes = safeStr(item.notes, '');
             html += `
-                <div style="margin-bottom:15px; border-bottom:1px dashed #ccc; padding-bottom:10px;">
-                    <strong style="font-size:1.2rem;">${item.quantity}x ${prodName}</strong>
-                    ${notes ? `<br><strong style="background:#000; color:#fff; padding:2px 5px;">NOTA: ${notes}</strong>` : ''}
+                <div class="print-item">
+                    <strong style="font-size:1.4rem;">${item.quantity} x ${pName}</strong>
+                    ${notes ? `<br><span class="print-note">ATENCIÓN: ${notes}</span>` : ''}
                 </div>
             `;
         });
     }
-    
-    kitchenTicketBody.innerHTML = html;
-    detailModal.classList.remove('active'); // close detail
-    kitchenModal.classList.add('active');   // open kitchen print
-}
 
-async function updateTicketStatus(id, newStatus) {
+    kitchenTicketBody.innerHTML = html;
+    detailModal.classList.remove('active');
+    kitchenModal.classList.add('active');
+};
+
+window.updateOrderStatus = async (id, newStatus, closeModals = false) => {
     try {
-        await fetch(`${API_BASE}/tickets/${id}/status`, {
+        const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-        
-        detailModal.classList.remove('active');
-        showToast(`Pedido #${id} marcado como: ${newStatus}`, 'success');
-        
+        if (!res.ok) throw new Error('Failed API call');
+
+        showToast(`Pedido actualizado: ${newStatus.toUpperCase()}`, 'success');
+        if (closeModals) detailModal.classList.remove('active');
+
         // Optimistic UI update
         const idx = allTickets.findIndex(t => t.id == id || t.ticket_number == id);
         if(idx > -1) allTickets[idx].status = newStatus;
-        applyFiltersAndRender();
-        calculateKPIs();
-        
-        // Sync with backend
-        fetchTickets(); 
-    } catch (error) {
-        console.error('Error updating ticket:', error);
-        showToast('Error al actualizar estado', 'error');
+        renderOrders();
+        renderKPIs();
+
+        // Background sync
+        fetchOrders(false);
+    } catch (e) {
+        console.error(e);
+        showToast('Error al actualizar pedido. Verifica la red.', 'error');
     }
-}
+};
 
-
-/* ===========================
-   RESERVATIONS LOGIC
-=========================== */
-async function fetchReservations() {
+/* ==========================================
+   RESERVATIONS
+========================================== */
+async function fetchReservations(showLoading = false) {
+    if (isFetching) return;
     try {
-        const response = await fetch(`${API_BASE}/reservations`);
-        allReservations = await response.json();
-        localStorage.setItem('tgr_reservations', JSON.stringify(allReservations));
+        const res = await fetch(`${API_BASE}/reservations`);
+        if (!res.ok) throw new Error();
+        allReservations = await res.json();
         renderReservations();
-    } catch (error) {
-        console.error('Error fetching reservations:', error);
-        const local = localStorage.getItem('tgr_reservations');
-        if (local) {
-            allReservations = JSON.parse(local);
-            renderReservations();
-        }
+    } catch (e) {
+        showToast('Error conectando a API Reservas', 'error');
     }
 }
 
 function renderReservations() {
-    reservationsList.innerHTML = '';
-    if(allReservations.length === 0) {
-        reservationsList.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">No hay reservas registradas.</div>';
+    const list = document.getElementById('reservations-list');
+    list.innerHTML = '';
+    
+    if (allReservations.length === 0) {
+        list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">📅</div>No hay reservas registradas.</div>';
         return;
     }
 
-    allReservations.forEach(res => {
+    allReservations.forEach(r => {
         const div = document.createElement('div');
         div.className = 'res-card';
         
-        let statusClass = `status-${res.status}`;
-        let statusName = res.status;
-        if(res.status === 'ready') statusName = 'asistió';
-        
         let actionBtns = '';
-        if (res.status === 'pending') {
+        if (r.status === 'pending') {
             actionBtns = `
-                <button class="btn-primary" onclick="updateResStatus(${res.id}, 'approved')">Aprobar</button>
-                <button class="btn-danger" onclick="updateResStatus(${res.id}, 'cancelled')">Rechazar</button>
+                <button class="btn-primary" onclick="updateResStatus(${r.id}, 'approved')">Aprobar</button>
+                <button class="btn-danger-outline" onclick="updateResStatus(${r.id}, 'cancelled')">Rechazar</button>
             `;
-        } else if (res.status === 'approved') {
-            actionBtns = `
-                <button class="btn-primary" onclick="updateResStatus(${res.id}, 'ready')">Marcar Asistencia</button>
-            `;
+        } else if (r.status === 'approved') {
+            actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'ready')">Marcar Asistencia</button>`;
         }
 
         div.innerHTML = `
-            <div class="res-name">${safeStr(res.name, 'Sin Nombre')}</div>
-            <div class="res-detail">Fecha: ${res.date}</div>
-            <div class="res-detail">Hora: ${res.time}</div>
-            <div class="res-detail">Invitados: ${res.guests} personas</div>
-            <div class="res-detail">Contacto: ${res.email}</div>
-            <div class="res-status ${statusClass}">${statusName.toUpperCase()}</div>
-            <div class="res-actions">
-                ${actionBtns}
+            <div style="font-size:1.2rem; font-weight:bold; color:var(--color-gold); margin-bottom:8px;">${safeStr(r.name, 'Sin nombre')}</div>
+            <div style="font-size:0.9rem; color:var(--color-text-muted); margin-bottom:15px;">
+                📅 ${r.date} a las ${r.time}<br>
+                👥 ${r.guests} personas<br>
+                ✉️ ${r.email}<br>
+                Estado: <strong style="color:var(--color-text); text-transform:uppercase">${r.status}</strong>
             </div>
+            <div style="display:flex; gap:10px; margin-top:auto;">${actionBtns}</div>
         `;
-        reservationsList.appendChild(div);
+        list.appendChild(div);
     });
 }
 
-async function updateResStatus(id, newStatus) {
+window.updateResStatus = async (id, status) => {
     try {
         await fetch(`${API_BASE}/reservations/${id}/status`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ status: newStatus })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
         });
         showToast('Reserva actualizada', 'success');
-        
-        const idx = allReservations.findIndex(r => r.id == id);
-        if(idx > -1) allReservations[idx].status = newStatus;
-        renderReservations();
-
-        fetchReservations(); // Refresh bg
-    } catch (error) {
-        console.error('Error updating reservation:', error);
+        fetchReservations();
+    } catch (e) {
         showToast('Error al actualizar reserva', 'error');
     }
-}
+};
 
-// Initialization
-fetchTickets();
-fetchReservations();
+/* ==========================================
+   INIT & INTERVALS
+========================================== */
+fetchOrders(true);
 
-// Auto refresh every 10 seconds
+// Auto-refresh every 10 seconds without blocking UI or showing loader
 autoRefreshInterval = setInterval(() => {
-    fetchTickets();
-    if(tabReservations.classList.contains('active')) fetchReservations();
+    if (tabOrders.classList.contains('active')) fetchOrders(false);
+    if (tabReservations.classList.contains('active')) fetchReservations(false);
 }, 10000);
