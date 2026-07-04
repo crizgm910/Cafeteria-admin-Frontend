@@ -9,7 +9,7 @@
 </head>
 <body class="comfort-view"> <!-- comfort-view by default -->
     <!-- Login Screen -->
-    <div id="login-screen" class="login-overlay active">
+    <section id="loginView" class="auth-view hidden">
         <div class="login-card">
             <h1 class="logo" style="font-size:2rem; text-align:center; margin-bottom: 20px;">TGR <span>Staff Portal</span></h1>
             <p style="color:var(--color-text-muted); text-align:center; margin-bottom: 20px;">Acceso restringido a personal autorizado.</p>
@@ -20,9 +20,11 @@
             </form>
             <div id="login-error" style="color:var(--color-danger); text-align:center; margin-top:10px; display:none;">Credenciales incorrectas</div>
         </div>
-    </div>
+    </section>
 
-    <header class="admin-header">
+    <!-- Dashboard Screen -->
+    <section id="dashboardView" class="dashboard-view hidden">
+        <header class="admin-header">
         <div class="logo">TGR <span>Staff Portal</span></div>
         <div class="header-status">
             <span class="connection-status" id="connection-status"><span class="dot green"></span> Conectado</span>
@@ -188,6 +190,7 @@
             </div>
         </section>
     </main>
+    </section>
 
     <!-- Modal Completados -->
     <div id="completed-modal" class="modal-overlay">

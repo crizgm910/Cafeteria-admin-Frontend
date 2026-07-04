@@ -22,13 +22,18 @@ const toastContainer = document.getElementById('toast-container');
 const activityLog = document.getElementById('activity-log');
 
 // Login Elements
-const loginScreen = document.getElementById('login-screen');
+const loginView = document.getElementById('loginView');
+const dashboardView = document.getElementById('dashboardView');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 
 // Auth Logic
 if (authToken) {
-    loginScreen.classList.remove('active');
+    loginView.classList.add('hidden');
+    dashboardView.classList.remove('hidden');
+} else {
+    loginView.classList.remove('hidden');
+    dashboardView.classList.add('hidden');
 }
 
 loginForm.addEventListener('submit', async (e) => {
@@ -52,7 +57,8 @@ loginForm.addEventListener('submit', async (e) => {
         
         authToken = data.token;
         localStorage.setItem('tgr_auth_token', authToken);
-        loginScreen.classList.remove('active');
+        loginView.classList.add('hidden');
+        dashboardView.classList.remove('hidden');
         fetchOrders(true);
         fetchReservations(true);
     } catch (err) {
@@ -73,7 +79,8 @@ async function authFetch(url, options = {}) {
     if (res.status === 401) {
         authToken = null;
         localStorage.removeItem('tgr_auth_token');
-        loginScreen.classList.add('active');
+        dashboardView.classList.add('hidden');
+        loginView.classList.remove('hidden');
         throw new Error('No autorizado');
     }
     return res;
