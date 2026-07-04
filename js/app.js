@@ -123,6 +123,8 @@ btnCompleted.onclick = () => {
     completedModal.classList.add('active');
 };
 document.getElementById('close-completed-modal').onclick = () => completedModal.classList.remove('active');
+document.getElementById('close-detail-modal').onclick = () => document.getElementById('order-detail-modal').classList.remove('active');
+document.getElementById('close-kitchen-modal').onclick = () => document.getElementById('kitchen-ticket-modal').classList.remove('active');
 
 function logActivity(msg, icon = '🔔') {
     const div = document.createElement('div');
