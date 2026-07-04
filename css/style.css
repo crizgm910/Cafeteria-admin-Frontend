@@ -237,6 +237,7 @@ body.kitchen-mode .kanban-col { max-height: calc(100vh - 150px); }
     .col-header { border-radius:6px; margin-bottom:10px; }
     .admin-header { flex-direction: column; gap:10px; align-items:flex-start;}
     .header-status { width:100%; justify-content:space-between; flex-wrap:wrap;}
+}
 
 /* Login Overlay */
 .login-card { background: var(--color-surface); border: 1px solid var(--color-border); padding: 40px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
