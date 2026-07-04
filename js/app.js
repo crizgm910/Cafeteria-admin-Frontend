@@ -458,12 +458,14 @@ function renderReservations() {
         let actionBtns = '';
         if (r.status === 'pending') actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'approved')">Aprobar</button> <button class="btn-danger-outline" onclick="updateResStatus(${r.id}, 'cancelled')">Rechazar</button>`;
         else if (r.status === 'approved') actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'ready')">Marcar Asistencia</button>`;
+        else if (r.status === 'ready') actionBtns = `<button class="btn-primary" style="background-color: var(--color-success);" onclick="updateResStatus(${r.id}, 'completed')">Finalizar</button>`;
 
         let mappedStatus = r.status;
         if (r.status === 'pending') mappedStatus = 'Pendiente';
         if (r.status === 'approved') mappedStatus = 'Confirmada';
         if (r.status === 'ready') mappedStatus = 'En mesa';
         if (r.status === 'cancelled') mappedStatus = 'Cancelada';
+        if (r.status === 'completed') mappedStatus = 'Finalizada';
 
         div.innerHTML = `
             <div style="font-size:1.2rem; font-weight:bold; color:var(--color-gold); margin-bottom:8px;">${safeStr(r.name, 'Sin nombre')}</div>
