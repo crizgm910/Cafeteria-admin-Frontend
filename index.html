@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TGR Admin - Panel de Empleados</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="logo">TGR <span>Staff Portal</span></div>
+        <nav class="admin-nav">
+            <button class="nav-btn active" id="tab-orders">Pedidos (Kitchen)</button>
+            <button class="nav-btn" id="tab-reservations">Reservas</button>
+        </nav>
+    </header>
+
+    <main class="admin-container">
+        <!-- VISTA PEDIDOS (KANBAN) -->
+        <section id="view-orders" class="admin-view active-view">
+            <div class="kanban-board">
+                <!-- Columna Pendientes -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <h2>Nuevos (Pendientes)</h2>
+                        <span class="badge" id="badge-pending">0</span>
+                    </div>
+                    <div class="col-body" id="col-pending">
+                        <!-- JS Cards -->
+                    </div>
+                </div>
+
+                <!-- Columna Preparando -->
+                <div class="kanban-col preparing-col">
+                    <div class="col-header">
+                        <h2>Preparando</h2>
+                        <span class="badge" id="badge-preparing">0</span>
+                    </div>
+                    <div class="col-body" id="col-preparing">
+                        <!-- JS Cards -->
+                    </div>
+                </div>
+
+                <!-- Columna Listos -->
+                <div class="kanban-col ready-col">
+                    <div class="col-header">
+                        <h2>Listos para Entrega</h2>
+                        <span class="badge" id="badge-ready">0</span>
+                    </div>
+                    <div class="col-body" id="col-ready">
+                        <!-- JS Cards -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA RESERVAS -->
+        <section id="view-reservations" class="admin-view">
+            <div class="reservations-header">
+                <h2>Control de Reservas</h2>
+            </div>
+            <div class="reservations-list" id="reservations-list">
+                <!-- JS Rows -->
+            </div>
+        </section>
+    </main>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
