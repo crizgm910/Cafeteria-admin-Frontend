@@ -422,10 +422,13 @@ async function fetchReservations() {
 function renderReservations() {
     const list = document.getElementById('reservations-list');
     
-    // Front-end date logic
-    const todayStr = new Date().toISOString().split('T')[0];
-    const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+    // Front-end date logic using local timezone to match user input properly
+    const todayObj = new Date();
+    const todayStr = todayObj.getFullYear() + '-' + String(todayObj.getMonth() + 1).padStart(2, '0') + '-' + String(todayObj.getDate()).padStart(2, '0');
+    
+    const tomorrowObj = new Date();
+    tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+    const tomorrowStr = tomorrowObj.getFullYear() + '-' + String(tomorrowObj.getMonth() + 1).padStart(2, '0') + '-' + String(tomorrowObj.getDate()).padStart(2, '0');
     
     let filtered = allReservations.filter(r => {
         let matchDate = true;
@@ -456,11 +459,17 @@ function renderReservations() {
         if (r.status === 'pending') actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'approved')">Aprobar</button> <button class="btn-danger-outline" onclick="updateResStatus(${r.id}, 'cancelled')">Rechazar</button>`;
         else if (r.status === 'approved') actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'ready')">Marcar Asistencia</button>`;
 
+        let mappedStatus = r.status;
+        if (r.status === 'pending') mappedStatus = 'Pendiente';
+        if (r.status === 'approved') mappedStatus = 'Confirmada';
+        if (r.status === 'ready') mappedStatus = 'En mesa';
+        if (r.status === 'cancelled') mappedStatus = 'Cancelada';
+
         div.innerHTML = `
             <div style="font-size:1.2rem; font-weight:bold; color:var(--color-gold); margin-bottom:8px;">${safeStr(r.name, 'Sin nombre')}</div>
             <div style="font-size:0.9rem; color:var(--color-text-muted); margin-bottom:15px;">
                 📅 ${r.date} a las ${r.time} • 👥 ${r.guests} p<br>
-                Estado: <strong style="color:var(--color-text); text-transform:uppercase">${r.status}</strong>
+                Estado: <strong style="color:var(--color-text); text-transform:uppercase">${mappedStatus}</strong>
             </div>
             <div style="display:flex; gap:10px;">${actionBtns}</div>
         `;
