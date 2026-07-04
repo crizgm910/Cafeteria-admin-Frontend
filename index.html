@@ -7,13 +7,13 @@
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="comfort-view"> <!-- comfort-view by default -->
     <header class="admin-header">
         <div class="logo">TGR <span>Staff Portal</span></div>
         <div class="header-status">
             <span class="connection-status" id="connection-status"><span class="dot green"></span> Conectado</span>
             <span class="last-updated" id="last-updated">Actualizado: hace 0s</span>
-            <button class="btn-refresh" id="btn-manual-refresh" title="Actualizar ahora">↻</button>
+            <button class="btn-refresh" id="btn-manual-refresh" title="Actualizar pedidos ahora">↻</button>
             <span class="current-time" id="current-time">00:00</span>
             <div class="user-role">
                 <span class="role-icon">👤</span> Barista
@@ -30,27 +30,42 @@
         <!-- VISTA PEDIDOS (KANBAN) -->
         <section id="view-orders" class="admin-view active-view">
             
-            <!-- Resumen del Día (KPIs) -->
-            <div class="kpi-container">
-                <div class="kpi-card">
-                    <span class="kpi-title">Ventas de Hoy</span>
-                    <span class="kpi-value skeleton-text" id="kpi-sales">-</span>
+            <div class="dashboard-top-section">
+                <!-- Resumen del Día (KPIs) -->
+                <div class="kpi-container" id="kpi-section">
+                    <div class="kpi-card">
+                        <span class="kpi-title">Ventas de Hoy</span>
+                        <span class="kpi-value skeleton-text" id="kpi-sales">-</span>
+                        <small class="kpi-micro">Desde apertura</small>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">Completados</span>
+                        <span class="kpi-value skeleton-text" id="kpi-completed">-</span>
+                        <small class="kpi-micro">Pedidos finalizados</small>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">Pendientes</span>
+                        <span class="kpi-value skeleton-text" id="kpi-pending">-</span>
+                        <small class="kpi-micro">Requieren atención</small>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">Cancelados</span>
+                        <span class="kpi-value skeleton-text" id="kpi-cancelled">-</span>
+                        <small class="kpi-micro">No procesados</small>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">Ticket Promedio</span>
+                        <span class="kpi-value skeleton-text" id="kpi-average">-</span>
+                        <small class="kpi-micro">Por pedido completado</small>
+                    </div>
                 </div>
-                <div class="kpi-card">
-                    <span class="kpi-title">Completados</span>
-                    <span class="kpi-value skeleton-text" id="kpi-completed">-</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-title">Pendientes</span>
-                    <span class="kpi-value skeleton-text" id="kpi-pending">-</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-title">Cancelados</span>
-                    <span class="kpi-value skeleton-text" id="kpi-cancelled">-</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-title">Ticket Promedio</span>
-                    <span class="kpi-value skeleton-text" id="kpi-average">-</span>
+
+                <!-- Log de Actividad Reciente -->
+                <div class="activity-log-container" id="activity-section">
+                    <div class="log-header">Actividad Reciente</div>
+                    <div class="log-body" id="activity-log">
+                        <div class="log-item"><span>🚀</span> Sistema iniciado</div>
+                    </div>
                 </div>
             </div>
 
@@ -64,6 +79,13 @@
                     <button class="filter-btn" data-filter="delivery">Envío</button>
                     <button class="filter-btn danger-filter" data-filter="overdue">⚠️ Atrasados</button>
                 </div>
+                
+                <!-- View Toggles -->
+                <div class="view-toggles">
+                    <button class="toggle-btn" id="btn-completed" title="Ver completados de hoy">✅ Completados</button>
+                    <button class="toggle-btn" id="btn-density" title="Alternar Vista Compacta">🗜️ Vista Compacta</button>
+                    <button class="toggle-btn" id="btn-kitchen-mode" title="Activar Modo Cocina">👨‍🍳 Modo Cocina</button>
+                </div>
             </div>
 
             <!-- Mobile Tabs for Kanban -->
@@ -75,7 +97,7 @@
 
             <div class="kanban-board">
                 <!-- Columna Pendientes -->
-                <div class="kanban-col active-mobile" id="col-wrap-pending">
+                <div class="kanban-col pending-col active-mobile" id="col-wrap-pending">
                     <div class="col-header">
                         <div>
                             <h2>Nuevos</h2>
@@ -122,15 +144,51 @@
 
         <!-- VISTA RESERVAS -->
         <section id="view-reservations" class="admin-view">
-            <div class="filters-bar">
-                <h2>Gestión de Reservas</h2>
-                <!-- Aquí dejaremos espacio futuro para el filtro backend -->
+            <div class="res-dashboard-top">
+                <div class="kpi-card res-kpi">
+                    <span class="kpi-title">Reservas Hoy</span>
+                    <span class="kpi-value" id="kpi-res-today">-</span>
+                </div>
+                <div class="kpi-card res-kpi">
+                    <span class="kpi-title">Confirmadas</span>
+                    <span class="kpi-value" id="kpi-res-confirmed">-</span>
+                </div>
+                
+                <div class="filters-bar" style="margin-bottom:0; flex:1">
+                    <div class="filter-chips">
+                        <button class="filter-btn active" data-res-filter="all">Todas</button>
+                        <button class="filter-btn" data-res-filter="today">Hoy</button>
+                        <button class="filter-btn" data-res-filter="tomorrow">Mañana</button>
+                        <button class="filter-btn" data-res-filter="week">Esta semana</button>
+                    </div>
+                    <div class="filter-chips" style="margin-left:auto">
+                        <button class="filter-btn active" data-res-state="all">Cualquier Estado</button>
+                        <button class="filter-btn" data-res-state="pending">Pendientes</button>
+                        <button class="filter-btn" data-res-state="approved">Confirmadas</button>
+                    </div>
+                </div>
             </div>
+
             <div class="reservations-list" id="reservations-list">
                 <!-- JS Rows -->
             </div>
         </section>
     </main>
+
+    <!-- Modal Completados -->
+    <div id="completed-modal" class="modal-overlay">
+        <div class="modal-content detail-modal">
+            <div class="modal-header">
+                <h2>Pedidos Completados de Hoy</h2>
+                <button class="close-modal" id="close-completed-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="completed-list" style="display:grid; grid-template-columns: 1fr; gap:10px;">
+                    <!-- JS Render -->
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Detalles del Pedido -->
     <div id="order-detail-modal" class="modal-overlay">

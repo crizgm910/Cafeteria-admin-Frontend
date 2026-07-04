@@ -9,38 +9,63 @@ let isFetching = false;
 let autoRefreshInterval;
 let lastUpdateDate = new Date();
 
+let resDateFilter = 'all';
+let resStateFilter = 'all';
+
 // DOM Elements
 const eTime = document.getElementById('current-time');
 const eLastUpdated = document.getElementById('last-updated');
 const eConnStatus = document.getElementById('connection-status');
 const btnManualRefresh = document.getElementById('btn-manual-refresh');
 const toastContainer = document.getElementById('toast-container');
+const activityLog = document.getElementById('activity-log');
 
-// Tabs & Views
-const tabOrders = document.getElementById('tab-orders');
-const tabReservations = document.getElementById('tab-reservations');
-const viewOrders = document.getElementById('view-orders');
-const viewReservations = document.getElementById('view-reservations');
+// Views & Toggles
+const btnDensity = document.getElementById('btn-density');
+const btnKitchenMode = document.getElementById('btn-kitchen-mode');
+const btnCompleted = document.getElementById('btn-completed');
+const completedModal = document.getElementById('completed-modal');
 
-// Mobile Tabs
-const mobileTabs = document.querySelectorAll('.mobile-tab');
-const kanbanCols = {
-    pending: document.getElementById('col-wrap-pending'),
-    preparing: document.getElementById('col-wrap-preparing'),
-    ready: document.getElementById('col-wrap-ready')
+// Load preferences
+if (localStorage.getItem('tgr_ui_density') === 'compact') {
+    document.body.classList.remove('comfort-view');
+    document.body.classList.add('compact-view');
+}
+if (localStorage.getItem('tgr_ui_kitchen') === 'true') {
+    document.body.classList.add('kitchen-mode');
+}
+
+btnDensity.onclick = () => {
+    if (document.body.classList.contains('compact-view')) {
+        document.body.classList.remove('compact-view');
+        document.body.classList.add('comfort-view');
+        localStorage.setItem('tgr_ui_density', 'comfort');
+    } else {
+        document.body.classList.remove('comfort-view');
+        document.body.classList.add('compact-view');
+        localStorage.setItem('tgr_ui_density', 'compact');
+    }
 };
 
-// Column Bodies
-const colPending = document.getElementById('col-pending');
-const colPreparing = document.getElementById('col-preparing');
-const colReady = document.getElementById('col-ready');
+btnKitchenMode.onclick = () => {
+    document.body.classList.toggle('kitchen-mode');
+    localStorage.setItem('tgr_ui_kitchen', document.body.classList.contains('kitchen-mode'));
+};
 
-// Modals
-const detailModal = document.getElementById('order-detail-modal');
-const kitchenModal = document.getElementById('kitchen-ticket-modal');
-const modalDetailBody = document.getElementById('modal-detail-body');
-const modalDetailActions = document.getElementById('modal-detail-actions');
-const kitchenTicketBody = document.getElementById('kitchen-ticket-body');
+btnCompleted.onclick = () => {
+    renderCompletedModal();
+    completedModal.classList.add('active');
+};
+document.getElementById('close-completed-modal').onclick = () => completedModal.classList.remove('active');
+
+function logActivity(msg, icon = '🔔') {
+    const div = document.createElement('div');
+    div.className = 'log-item';
+    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    div.innerHTML = `<span class="log-time">[${time}]</span> <span>${icon}</span> ${msg}`;
+    activityLog.prepend(div);
+    if(activityLog.children.length > 30) activityLog.lastChild.remove();
+}
 
 /* ==========================================
    UTILITIES
@@ -55,80 +80,42 @@ function showToast(message, type = 'info') {
     let icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
     toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
     toastContainer.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
-function updateClocks() {
+setInterval(() => {
     const now = new Date();
     eTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
     if (lastUpdateDate) {
         const diffSecs = Math.floor((now - lastUpdateDate) / 1000);
         eLastUpdated.textContent = `Actualizado: hace ${diffSecs}s`;
     }
-}
-setInterval(updateClocks, 1000);
+}, 1000);
 
 function setConnectionStatus(isOnline) {
-    if (isOnline) {
+    if (isOnline && eConnStatus.innerHTML.includes('Desconectada')) {
         eConnStatus.innerHTML = '<span class="dot green"></span> Conectado';
-    } else {
+        logActivity('Conexión con API restablecida', '🟢');
+    } else if (!isOnline && eConnStatus.innerHTML.includes('Conectado')) {
         eConnStatus.innerHTML = '<span class="dot red"></span> API Desconectada';
+        logActivity('Se perdió conexión con servidor', '🔴');
     }
 }
-
-/* ==========================================
-   NAVIGATION & MOBILE
-========================================== */
-tabOrders.onclick = () => switchView('orders');
-tabReservations.onclick = () => switchView('reservations');
-
-function switchView(view) {
-    tabOrders.classList.remove('active');
-    tabReservations.classList.remove('active');
-    viewOrders.classList.remove('active-view');
-    viewReservations.classList.remove('active-view');
-    
-    if (view === 'orders') {
-        tabOrders.classList.add('active');
-        viewOrders.classList.add('active-view');
-        fetchOrders(true);
-    } else {
-        tabReservations.classList.add('active');
-        viewReservations.classList.add('active-view');
-        fetchReservations(true);
-    }
-}
-
-mobileTabs.forEach(btn => {
-    btn.onclick = (e) => {
-        mobileTabs.forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        Object.values(kanbanCols).forEach(col => col.classList.remove('active-mobile'));
-        const colKey = e.target.dataset.col;
-        kanbanCols[colKey].classList.add('active-mobile');
-    };
-});
-
-document.getElementById('close-detail-modal').onclick = () => detailModal.classList.remove('active');
-document.getElementById('close-kitchen-modal').onclick = () => kitchenModal.classList.remove('active');
 
 /* ==========================================
    ORDERS LOGIC (KDS)
 ========================================== */
-btnManualRefresh.onclick = () => fetchOrders(true);
+btnManualRefresh.onclick = () => {
+    btnManualRefresh.classList.add('spin');
+    fetchOrders(true).then(() => {
+        setTimeout(() => btnManualRefresh.classList.remove('spin'), 500);
+    });
+};
 
-document.getElementById('search-orders').addEventListener('input', (e) => {
-    searchQuery = e.target.value.toLowerCase();
-    renderOrders();
-});
-
-document.querySelectorAll('.filter-btn').forEach(btn => {
+document.getElementById('search-orders').addEventListener('input', (e) => { searchQuery = e.target.value.toLowerCase(); renderOrders(); });
+document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.filter-btn[data-filter]').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         currentFilter = e.target.dataset.filter;
         renderOrders();
@@ -139,25 +126,19 @@ async function fetchOrders(showLoading = false) {
     if (isFetching) return;
     isFetching = true;
 
-    if (showLoading && allTickets.length === 0) {
-        // Show skeleton only if empty
-        const skeletons = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
-        colPending.innerHTML = skeletons;
-        colPreparing.innerHTML = skeletons;
-        colReady.innerHTML = skeletons;
-    }
-
     try {
         const response = await fetch(`${API_BASE}/tickets`);
-        if (!response.ok) throw new Error('API Response not OK');
+        if (!response.ok) throw new Error('API Error');
         const newData = await response.json();
         
-        // Check for new orders to toast
         if (allTickets.length > 0) {
             const newIds = newData.map(t => t.id);
             const oldIds = allTickets.map(t => t.id);
             const freshlyAdded = newIds.filter(id => !oldIds.includes(id));
-            if (freshlyAdded.length > 0) showToast(`${freshlyAdded.length} nuevo(s) pedido(s) recibido(s)`, 'success');
+            if (freshlyAdded.length > 0) {
+                showToast(`${freshlyAdded.length} nuevo(s) pedido(s) recibido(s)`, 'success');
+                logActivity(`${freshlyAdded.length} nuevo(s) pedido(s) en bandeja`, '🔔');
+            }
         }
 
         allTickets = newData;
@@ -167,16 +148,12 @@ async function fetchOrders(showLoading = false) {
         renderOrders();
         renderKPIs();
     } catch (error) {
-        console.error('Fetch Orders Error:', error);
         setConnectionStatus(false);
         const cached = localStorage.getItem('tgr_kds_tickets');
         if (cached) {
             allTickets = JSON.parse(cached);
-            if (showLoading) showToast('Mostrando datos en caché', 'warning');
             renderOrders();
             renderKPIs();
-        } else {
-            showToast('Error de conexión a la API', 'error');
         }
     } finally {
         isFetching = false;
@@ -186,11 +163,9 @@ async function fetchOrders(showLoading = false) {
 function renderOrders() {
     let counts = { pending: 0, preparing: 0, ready: 0 };
     
-    // Filter logic
     let filtered = allTickets.filter(t => {
         const matchText = (t.ticket_number && String(t.ticket_number).toLowerCase().includes(searchQuery)) ||
                           (t.id && String(t.id).includes(searchQuery));
-        
         let matchFilter = true;
         if (currentFilter === 'takeout') matchFilter = t.order_type === 'takeout';
         if (currentFilter === 'dine_in') matchFilter = t.order_type === 'dine_in';
@@ -199,33 +174,21 @@ function renderOrders() {
             const isOverdue = (new Date() - new Date(t.created_at)) > (15 * 60000);
             matchFilter = isOverdue && !['delivered','cancelled'].includes(t.status);
         }
-
         return matchText && matchFilter;
     });
 
-    // To prevent DOM flickering, we will generate HTML strings and then set innerHTML
-    // In a real huge app, we'd use virtual DOM (React/Vue), but string building is fast enough for Vanilla
-    let htmlPending = '';
-    let htmlPreparing = '';
-    let htmlReady = '';
+    let htmlPending = '', htmlPreparing = '', htmlReady = '';
 
     filtered.forEach(ticket => {
         const cardHtml = getTicketCardHTML(ticket);
-        if (['pending', 'paid'].includes(ticket.status)) {
-            htmlPending += cardHtml;
-            counts.pending++;
-        } else if (ticket.status === 'preparing') {
-            htmlPreparing += cardHtml;
-            counts.preparing++;
-        } else if (ticket.status === 'ready') {
-            htmlReady += cardHtml;
-            counts.ready++;
-        }
+        if (['pending', 'paid'].includes(ticket.status)) { htmlPending += cardHtml; counts.pending++; }
+        else if (ticket.status === 'preparing') { htmlPreparing += cardHtml; counts.preparing++; }
+        else if (ticket.status === 'ready') { htmlReady += cardHtml; counts.ready++; }
     });
 
-    colPending.innerHTML = counts.pending > 0 ? htmlPending : '<div class="empty-state"><div class="empty-icon">📝</div>No hay pedidos nuevos.<br><small>Los pedidos confirmados aparecerán aquí automáticamente.</small></div>';
-    colPreparing.innerHTML = counts.preparing > 0 ? htmlPreparing : '<div class="empty-state"><div class="empty-icon">🍳</div>No hay pedidos en preparación.<br><small>Cuando un pedido sea aceptado, se moverá a esta columna.</small></div>';
-    colReady.innerHTML = counts.ready > 0 ? htmlReady : '<div class="empty-state"><div class="empty-icon">🛍️</div>No hay pedidos listos.<br><small>Los pedidos terminados aparecerán aquí para entrega.</small></div>';
+    document.getElementById('col-pending').innerHTML = counts.pending > 0 ? htmlPending : '<div class="empty-state"><div class="empty-icon">📝</div>Sin pedidos nuevos</div>';
+    document.getElementById('col-preparing').innerHTML = counts.preparing > 0 ? htmlPreparing : '<div class="empty-state"><div class="empty-icon">🍳</div>Cocina despejada</div>';
+    document.getElementById('col-ready').innerHTML = counts.ready > 0 ? htmlReady : '<div class="empty-state"><div class="empty-icon">🛍️</div>Sin entregas pendientes</div>';
 
     document.getElementById('badge-pending').textContent = counts.pending;
     document.getElementById('badge-preparing').textContent = counts.preparing;
@@ -238,42 +201,29 @@ function renderOrders() {
 function getTicketCardHTML(ticket) {
     const tNum = safeStr(ticket.ticket_number, ticket.id);
     const time = new Date(ticket.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const totalMoney = formatMoney(ticket.total);
-    const itemCount = ticket.items ? ticket.items.length : 0;
-    
     const diffMins = Math.floor((new Date() - new Date(ticket.created_at)) / 60000);
     const isOverdue = diffMins >= 15;
     const timeText = diffMins < 1 ? 'Ahora' : `Hace ${diffMins} min`;
 
-    let serviceName = 'Local'; let serviceColor = '#4caf50';
-    if(ticket.order_type === 'takeout') { serviceName = 'Llevar'; serviceColor = '#2196f3'; }
-    else if(ticket.order_type === 'delivery') { serviceName = 'Envío'; serviceColor = '#9c27b0'; }
+    let sName = 'Local'; let sCol = '#22c55e';
+    if(ticket.order_type === 'takeout') { sName = 'Llevar'; sCol = '#3b82f6'; }
+    else if(ticket.order_type === 'delivery') { sName = 'Envío'; sCol = '#f59e0b'; }
 
-    let hasNotes = false;
-    if (ticket.items) hasNotes = ticket.items.some(i => i.notes && i.notes.trim() !== '');
+    let hasNotes = ticket.items && ticket.items.some(i => i.notes && i.notes.trim() !== '');
 
     let btnPrimary = '';
-    if (['pending', 'paid'].includes(ticket.status)) btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'preparing')">Aceptar (Cocinar)</button>`;
-    else if (ticket.status === 'preparing') btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'ready')">Marcar Listo</button>`;
-    else if (ticket.status === 'ready') btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'delivered')">Entregar Cliente</button>`;
+    if (['pending', 'paid'].includes(ticket.status)) btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'preparing')">Cocinar</button>`;
+    else if (ticket.status === 'preparing') btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'ready')">Terminado</button>`;
+    else if (ticket.status === 'ready') btnPrimary = `<button class="btn-fill" onclick="updateOrderStatus('${ticket.id}', 'delivered')">Entregar</button>`;
 
     return `
         <div class="ticket-card ${isOverdue ? 'is-overdue' : ''}">
             <div class="tc-head">
-                <div>
-                    <span class="badge-service" style="background:${serviceColor}">${serviceName}</span>
-                    <span class="tc-id">#${tNum}</span>
-                </div>
-                <div class="tc-time ${isOverdue ? 'overdue' : ''}">
-                    ${time}<br>${timeText}
-                </div>
+                <div><span class="badge-service" style="background:${sCol}">${sName}</span> <span class="tc-id">#${tNum}</span></div>
+                <div class="tc-time ${isOverdue ? 'overdue' : ''}">${time}<br>${timeText}</div>
             </div>
-            <div class="tc-tags">
-                ${hasNotes ? `<span class="tag tag-notes">NOTAS ESPECIALES</span>` : ''}
-            </div>
-            <div class="tc-body">
-                ${itemCount} artículos • ${totalMoney}
-            </div>
+            <div class="tc-tags">${hasNotes ? `<span class="tag tag-notes">NOTAS</span>` : ''}</div>
+            <div class="tc-body">${ticket.items ? ticket.items.length : 0} arts • ${formatMoney(ticket.total)}</div>
             <div class="tc-foot">
                 <button class="btn-outline" onclick="openOrderDetail('${ticket.id}')">👁️ Detalle</button>
                 ${btnPrimary}
@@ -291,9 +241,7 @@ function renderKPIs() {
     });
     const avg = completed > 0 ? (sales / completed) : 0;
 
-    // Remove skeleton class
     document.querySelectorAll('.kpi-value').forEach(el => el.classList.remove('skeleton-text'));
-    
     document.getElementById('kpi-sales').textContent = formatMoney(sales);
     document.getElementById('kpi-completed').textContent = completed;
     document.getElementById('kpi-pending').textContent = pending;
@@ -301,9 +249,16 @@ function renderKPIs() {
     document.getElementById('kpi-average').textContent = formatMoney(avg);
 }
 
-/* ==========================================
-   ORDER ACTIONS & MODALS
-========================================== */
+function renderCompletedModal() {
+    const list = document.getElementById('completed-list');
+    const completed = allTickets.filter(t => t.status === 'delivered');
+    if (completed.length === 0) {
+        list.innerHTML = '<div class="empty-state">No hay pedidos completados hoy.</div>';
+        return;
+    }
+    list.innerHTML = completed.map(t => getTicketCardHTML(t)).join('');
+}
+
 window.openOrderDetail = (id) => {
     const ticket = allTickets.find(t => t.id == id || t.ticket_number == id);
     if (!ticket) return;
@@ -313,158 +268,134 @@ window.openOrderDetail = (id) => {
     let itemsHtml = '';
     if (ticket.items) {
         ticket.items.forEach(item => {
-            const pName = item.product ? safeStr(item.product.name, 'Desconocido') : 'Desconocido';
+            const pName = item.product ? safeStr(item.product.name, 'Desc.') : 'Desc.';
             const notes = safeStr(item.notes, '');
-            itemsHtml += `
-                <div class="detail-product">
-                    <div class="detail-product-info">
-                        <div class="detail-product-name">${item.quantity}x ${pName}</div>
-                        ${notes ? `<div class="detail-product-meta">📝 ${notes}</div>` : ''}
-                    </div>
-                    <div>${formatMoney(item.subtotal)}</div>
-                </div>
-            `;
+            itemsHtml += `<div class="detail-product"><div class="detail-product-info"><div class="detail-product-name">${item.quantity}x ${pName}</div>${notes ? `<div class="detail-product-meta">📝 ${notes}</div>` : ''}</div><div>${formatMoney(item.subtotal)}</div></div>`;
         });
     }
 
-    modalDetailBody.innerHTML = `
+    document.getElementById('modal-detail-body').innerHTML = `
         <div class="detail-grid">
-            <div class="detail-item"><span class="detail-label">Cliente</span><span class="detail-value">Web Cliente</span></div>
             <div class="detail-item"><span class="detail-label">Hora Pedido</span><span class="detail-value">${new Date(ticket.created_at).toLocaleString()}</span></div>
-            <div class="detail-item"><span class="detail-label">Servicio</span><span class="detail-value" style="text-transform:uppercase">${safeStr(ticket.order_type, 'Local')}</span></div>
-            <div class="detail-item"><span class="detail-label">Pago</span><span class="detail-value">Confirmado</span></div>
-            <div class="detail-item"><span class="detail-label">Estado</span><span class="detail-value" style="text-transform:uppercase; color:var(--color-info)">${ticket.status}</span></div>
-            <div class="detail-item"><span class="detail-label">Total Neto</span><span class="detail-value" style="color:var(--color-gold); font-size:1.2rem">${formatMoney(ticket.total)}</span></div>
+            <div class="detail-item"><span class="detail-label">Total</span><span class="detail-value" style="color:var(--color-gold); font-size:1.2rem">${formatMoney(ticket.total)}</span></div>
         </div>
-        <div class="detail-products-list">
-            <h3 style="margin-bottom:10px; font-size:0.9rem; color:var(--color-text-muted); text-transform:uppercase;">Artículos del Pedido</h3>
-            ${itemsHtml || '<div class="empty-state">No hay artículos</div>'}
-        </div>
+        <div class="detail-products-list">${itemsHtml || 'Sin artículos'}</div>
     `;
 
-    // Dynamic actions based on status
     let actionsHtml = `<button class="btn-outline" style="margin-right:auto" onclick="openKitchenTicket('${ticket.id}')">🖨️ Ticket Cocina</button>`;
+    if (!['cancelled', 'delivered'].includes(ticket.status)) actionsHtml += `<button class="btn-danger-outline" onclick="updateOrderStatus('${ticket.id}', 'cancelled', true)">❌ Cancelar</button>`;
+    if (ticket.status === 'preparing') actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'pending', true)">↩️ Revertir a Pendiente</button> <button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'ready', true)">✅ Marcar Listo</button>`;
+    if (ticket.status === 'ready') actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'preparing', true)">↩️ Revertir a Prep.</button> <button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'delivered', true)">🛍️ Entregar</button>`;
     
-    if (ticket.status !== 'cancelled' && ticket.status !== 'delivered') {
-        actionsHtml += `<button class="btn-danger-outline" onclick="updateOrderStatus('${ticket.id}', 'cancelled', true)">❌ Cancelar Pedido</button>`;
-    }
-    if (ticket.status === 'preparing') {
-        actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'pending', true)">↩️ Revertir a Pendiente</button>`;
-        actionsHtml += `<button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'ready', true)">✅ Marcar Listo</button>`;
-    }
-    if (ticket.status === 'ready') {
-        actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'preparing', true)">↩️ Revertir a Prep.</button>`;
-        actionsHtml += `<button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'delivered', true)">🛍️ Entregar al Cliente</button>`;
-    }
-    
-    modalDetailActions.innerHTML = actionsHtml;
-    detailModal.classList.add('active');
+    document.getElementById('modal-detail-actions').innerHTML = actionsHtml;
+    document.getElementById('order-detail-modal').classList.add('active');
 };
 
 window.openKitchenTicket = (id) => {
     const ticket = allTickets.find(t => t.id == id || t.ticket_number == id);
     if (!ticket) return;
-
-    let html = `
-        <div class="print-header">
-            <h1 style="margin-bottom:5px;">TGR KITCHEN</h1>
-            <p style="font-size:1.3rem; font-weight:bold;">PEDIDO #${safeStr(ticket.ticket_number, ticket.id)}</p>
-            <p>Servicio: ${String(ticket.order_type).toUpperCase()}</p>
-            <p>Hora: ${new Date(ticket.created_at).toLocaleTimeString()}</p>
-        </div>
-    `;
-
-    if (ticket.items) {
-        ticket.items.forEach(item => {
-            const pName = item.product ? safeStr(item.product.name, 'Unknown') : 'Unknown';
-            const notes = safeStr(item.notes, '');
-            html += `
-                <div class="print-item">
-                    <strong style="font-size:1.4rem;">${item.quantity} x ${pName}</strong>
-                    ${notes ? `<br><span class="print-note">ATENCIÓN: ${notes}</span>` : ''}
-                </div>
-            `;
-        });
-    }
-
-    kitchenTicketBody.innerHTML = html;
-    detailModal.classList.remove('active');
-    kitchenModal.classList.add('active');
+    let html = `<div class="print-header"><h1>TGR KITCHEN</h1><p style="font-size:1.3rem; font-weight:bold;">PEDIDO #${safeStr(ticket.ticket_number, ticket.id)}</p></div>`;
+    if (ticket.items) ticket.items.forEach(i => {
+        const pName = i.product ? safeStr(i.product.name, '') : '';
+        const notes = safeStr(i.notes, '');
+        html += `<div class="print-item"><strong style="font-size:1.4rem;">${i.quantity} x ${pName}</strong>${notes ? `<br><span class="print-note">NOTA: ${notes}</span>` : ''}</div>`;
+    });
+    document.getElementById('kitchen-ticket-body').innerHTML = html;
+    document.getElementById('kitchen-ticket-modal').classList.add('active');
 };
 
 window.updateOrderStatus = async (id, newStatus, closeModals = false) => {
     try {
         const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-        if (!res.ok) throw new Error('Failed API call');
-
-        showToast(`Pedido actualizado: ${newStatus.toUpperCase()}`, 'success');
-        if (closeModals) detailModal.classList.remove('active');
-
-        // Optimistic UI update
+        if (!res.ok) throw new Error();
+        logActivity(`Pedido #${id} marcado como ${newStatus}`, '✅');
+        if (closeModals) document.getElementById('order-detail-modal').classList.remove('active');
         const idx = allTickets.findIndex(t => t.id == id || t.ticket_number == id);
         if(idx > -1) allTickets[idx].status = newStatus;
-        renderOrders();
-        renderKPIs();
-
-        // Background sync
+        renderOrders(); renderKPIs();
         fetchOrders(false);
     } catch (e) {
-        console.error(e);
-        showToast('Error al actualizar pedido. Verifica la red.', 'error');
+        showToast('Error de conexión', 'error');
     }
 };
 
 /* ==========================================
    RESERVATIONS
 ========================================== */
-async function fetchReservations(showLoading = false) {
-    if (isFetching) return;
+document.querySelectorAll('.filter-btn[data-res-filter]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn[data-res-filter]').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        resDateFilter = e.target.dataset.resFilter;
+        renderReservations();
+    });
+});
+document.querySelectorAll('.filter-btn[data-res-state]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn[data-res-state]').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        resStateFilter = e.target.dataset.resState;
+        renderReservations();
+    });
+});
+
+async function fetchReservations() {
     try {
         const res = await fetch(`${API_BASE}/reservations`);
         if (!res.ok) throw new Error();
         allReservations = await res.json();
         renderReservations();
-    } catch (e) {
-        showToast('Error conectando a API Reservas', 'error');
-    }
+    } catch (e) { console.error('Error fetching res'); }
 }
 
 function renderReservations() {
     const list = document.getElementById('reservations-list');
-    list.innerHTML = '';
     
-    if (allReservations.length === 0) {
-        list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">📅</div>No hay reservas registradas.</div>';
+    // Front-end date logic
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+    
+    let filtered = allReservations.filter(r => {
+        let matchDate = true;
+        if(resDateFilter === 'today') matchDate = r.date === todayStr;
+        if(resDateFilter === 'tomorrow') matchDate = r.date === tomorrowStr;
+        // logic for 'week' can be added. 
+        
+        let matchState = true;
+        if(resStateFilter === 'pending') matchState = r.status === 'pending';
+        if(resStateFilter === 'approved') matchState = r.status === 'approved';
+        
+        return matchDate && matchState;
+    });
+    
+    document.getElementById('kpi-res-today').textContent = allReservations.filter(r => r.date === todayStr).length;
+    document.getElementById('kpi-res-confirmed').textContent = allReservations.filter(r => r.status === 'approved').length;
+
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">No hay reservas para estos filtros.</div>';
         return;
     }
 
-    allReservations.forEach(r => {
+    filtered.forEach(r => {
         const div = document.createElement('div');
         div.className = 'res-card';
-        
         let actionBtns = '';
-        if (r.status === 'pending') {
-            actionBtns = `
-                <button class="btn-primary" onclick="updateResStatus(${r.id}, 'approved')">Aprobar</button>
-                <button class="btn-danger-outline" onclick="updateResStatus(${r.id}, 'cancelled')">Rechazar</button>
-            `;
-        } else if (r.status === 'approved') {
-            actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'ready')">Marcar Asistencia</button>`;
-        }
+        if (r.status === 'pending') actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'approved')">Aprobar</button> <button class="btn-danger-outline" onclick="updateResStatus(${r.id}, 'cancelled')">Rechazar</button>`;
+        else if (r.status === 'approved') actionBtns = `<button class="btn-primary" onclick="updateResStatus(${r.id}, 'ready')">Marcar Asistencia</button>`;
 
         div.innerHTML = `
             <div style="font-size:1.2rem; font-weight:bold; color:var(--color-gold); margin-bottom:8px;">${safeStr(r.name, 'Sin nombre')}</div>
             <div style="font-size:0.9rem; color:var(--color-text-muted); margin-bottom:15px;">
-                📅 ${r.date} a las ${r.time}<br>
-                👥 ${r.guests} personas<br>
-                ✉️ ${r.email}<br>
+                📅 ${r.date} a las ${r.time} • 👥 ${r.guests} p<br>
                 Estado: <strong style="color:var(--color-text); text-transform:uppercase">${r.status}</strong>
             </div>
-            <div style="display:flex; gap:10px; margin-top:auto;">${actionBtns}</div>
+            <div style="display:flex; gap:10px;">${actionBtns}</div>
         `;
         list.appendChild(div);
     });
@@ -472,25 +403,36 @@ function renderReservations() {
 
 window.updateResStatus = async (id, status) => {
     try {
-        await fetch(`${API_BASE}/reservations/${id}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
-        });
-        showToast('Reserva actualizada', 'success');
+        await fetch(`${API_BASE}/reservations/${id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+        logActivity(`Reserva #${id} actualizada`, '🎫');
         fetchReservations();
-    } catch (e) {
-        showToast('Error al actualizar reserva', 'error');
-    }
+    } catch (e) { showToast('Error', 'error'); }
 };
 
-/* ==========================================
-   INIT & INTERVALS
-========================================== */
-fetchOrders(true);
+/* TAB LOGIC */
+document.getElementById('tab-orders').onclick = () => {
+    document.getElementById('tab-orders').classList.add('active'); document.getElementById('tab-reservations').classList.remove('active');
+    document.getElementById('view-orders').classList.add('active-view'); document.getElementById('view-reservations').classList.remove('active-view');
+    fetchOrders(true);
+};
+document.getElementById('tab-reservations').onclick = () => {
+    document.getElementById('tab-reservations').classList.add('active'); document.getElementById('tab-orders').classList.remove('active');
+    document.getElementById('view-reservations').classList.add('active-view'); document.getElementById('view-orders').classList.remove('active-view');
+    fetchReservations(true);
+};
 
-// Auto-refresh every 10 seconds without blocking UI or showing loader
+/* Mobile Tabs Kanban */
+document.querySelectorAll('.mobile-tab').forEach(btn => {
+    btn.onclick = (e) => {
+        document.querySelectorAll('.mobile-tab').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('active-mobile'));
+        document.getElementById('col-wrap-' + e.target.dataset.col).classList.add('active-mobile');
+    };
+});
+
+fetchOrders(true);
 autoRefreshInterval = setInterval(() => {
-    if (tabOrders.classList.contains('active')) fetchOrders(false);
-    if (tabReservations.classList.contains('active')) fetchReservations(false);
+    if(document.getElementById('tab-orders').classList.contains('active')) fetchOrders(false);
+    if(document.getElementById('tab-reservations').classList.contains('active')) fetchReservations(false);
 }, 10000);
