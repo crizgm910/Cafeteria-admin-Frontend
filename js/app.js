@@ -350,7 +350,7 @@ window.openOrderDetail = (id) => {
         <div class="detail-products-list">${itemsHtml || 'Sin artículos'}</div>
     `;
 
-    let actionsHtml = `<button class="btn-outline" style="margin-right:auto" onclick="openKitchenTicket('${ticket.id}')">🖨️ Ticket Cocina</button>`;
+    let actionsHtml = `<div style="display:flex; gap:10px; margin-right:auto;"><button class="btn-outline" onclick="openKitchenTicket('${ticket.id}')">🖨️ Ticket Cocina</button><button class="btn-outline" onclick="openReceiptTicket('${ticket.id}')">🧾 Ticket Compra</button></div>`;
     if (!['cancelled', 'delivered'].includes(ticket.status)) actionsHtml += `<button class="btn-danger-outline" onclick="updateOrderStatus('${ticket.id}', 'cancelled', true)">❌ Cancelar</button>`;
     if (ticket.status === 'preparing') actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'pending', true)">↩️ Revertir a Pendiente</button> <button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'ready', true)">✅ Marcar Listo</button>`;
     if (ticket.status === 'ready') actionsHtml += `<button class="btn-outline" onclick="updateOrderStatus('${ticket.id}', 'preparing', true)">↩️ Revertir a Prep.</button> <button class="btn-primary" onclick="updateOrderStatus('${ticket.id}', 'delivered', true)">🛍️ Entregar</button>`;
@@ -368,6 +368,23 @@ window.openKitchenTicket = (id) => {
         const notes = safeStr(i.notes, '');
         html += `<div class="print-item"><strong style="font-size:1.4rem;">${i.quantity} x ${pName}</strong>${notes ? `<br><span class="print-note">NOTA: ${notes}</span>` : ''}</div>`;
     });
+    document.getElementById('kitchen-ticket-body').innerHTML = html;
+    document.getElementById('kitchen-ticket-modal').classList.add('active');
+};
+
+window.openReceiptTicket = (id) => {
+    const ticket = allTickets.find(t => t.id == id || t.ticket_number == id);
+    if (!ticket) return;
+    let html = `<div class="print-header"><h1>TGR RECEIPT</h1><p style="font-size:1.3rem; font-weight:bold;">PEDIDO #${safeStr(ticket.ticket_number, ticket.id)}</p></div>`;
+    if (ticket.items) {
+        ticket.items.forEach(i => {
+            const pName = i.product ? safeStr(i.product.name, '') : '';
+            html += `<div class="print-item" style="display:flex; justify-content:space-between; margin-bottom:5px;"><strong style="font-size:1.2rem;">${i.quantity} x ${pName}</strong><strong style="font-size:1.2rem;">${formatMoney(i.subtotal)}</strong></div>`;
+        });
+    }
+    html += `<div style="border-top:1px dashed #000; margin-top:10px; padding-top:10px; display:flex; justify-content:space-between; font-weight:bold; font-size:1.4rem;"><span>TOTAL</span><span>${formatMoney(ticket.total)}</span></div>`;
+    html += `<p style="text-align:center; margin-top:20px; font-size:1.2rem;">¡Gracias por su preferencia!</p>`;
+    
     document.getElementById('kitchen-ticket-body').innerHTML = html;
     document.getElementById('kitchen-ticket-modal').classList.add('active');
 };
