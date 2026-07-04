@@ -1,4 +1,5 @@
 const API_BASE = 'http://127.0.0.1:8000/api';
+let authToken = localStorage.getItem('tgr_auth_token') || null;
 
 // GLOBALS
 let allTickets = [];
@@ -19,6 +20,64 @@ const eConnStatus = document.getElementById('connection-status');
 const btnManualRefresh = document.getElementById('btn-manual-refresh');
 const toastContainer = document.getElementById('toast-container');
 const activityLog = document.getElementById('activity-log');
+
+// Login Elements
+const loginScreen = document.getElementById('login-screen');
+const loginForm = document.getElementById('login-form');
+const loginError = document.getElementById('login-error');
+
+// Auth Logic
+if (authToken) {
+    loginScreen.classList.remove('active');
+}
+
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.style.display = 'none';
+    const btn = loginForm.querySelector('button');
+    btn.textContent = 'Autenticando...';
+    
+    try {
+        const res = await fetch(`${API_BASE}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                email: document.getElementById('login-email').value,
+                password: document.getElementById('login-password').value
+            })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.message || 'Error login');
+        
+        authToken = data.token;
+        localStorage.setItem('tgr_auth_token', authToken);
+        loginScreen.classList.remove('active');
+        fetchOrders(true);
+        fetchReservations(true);
+    } catch (err) {
+        loginError.textContent = err.message;
+        loginError.style.display = 'block';
+    } finally {
+        btn.textContent = 'Ingresar al Sistema';
+    }
+});
+
+// Helper for authorized fetch
+async function authFetch(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    options.headers['Accept'] = 'application/json';
+    if (authToken) options.headers['Authorization'] = `Bearer ${authToken}`;
+    
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        authToken = null;
+        localStorage.removeItem('tgr_auth_token');
+        loginScreen.classList.add('active');
+        throw new Error('No autorizado');
+    }
+    return res;
+}
 
 // Views & Toggles
 const btnDensity = document.getElementById('btn-density');
@@ -127,7 +186,7 @@ async function fetchOrders(showLoading = false) {
     isFetching = true;
 
     try {
-        const response = await fetch(`${API_BASE}/tickets`);
+        const response = await authFetch(`${API_BASE}/tickets`);
         if (!response.ok) throw new Error('API Error');
         const newData = await response.json();
         
@@ -150,7 +209,7 @@ async function fetchOrders(showLoading = false) {
     } catch (error) {
         setConnectionStatus(false);
         const cached = localStorage.getItem('tgr_kds_tickets');
-        if (cached) {
+        if (cached && authToken) {
             allTickets = JSON.parse(cached);
             renderOrders();
             renderKPIs();
@@ -306,7 +365,7 @@ window.openKitchenTicket = (id) => {
 
 window.updateOrderStatus = async (id, newStatus, closeModals = false) => {
     try {
-        const res = await fetch(`${API_BASE}/tickets/${id}/status`, {
+        const res = await authFetch(`${API_BASE}/tickets/${id}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
@@ -344,8 +403,9 @@ document.querySelectorAll('.filter-btn[data-res-state]').forEach(btn => {
 });
 
 async function fetchReservations() {
+    if (!authToken) return;
     try {
-        const res = await fetch(`${API_BASE}/reservations`);
+        const res = await authFetch(`${API_BASE}/reservations`);
         if (!res.ok) throw new Error();
         allReservations = await res.json();
         renderReservations();
@@ -403,7 +463,7 @@ function renderReservations() {
 
 window.updateResStatus = async (id, status) => {
     try {
-        await fetch(`${API_BASE}/reservations/${id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+        await authFetch(`${API_BASE}/reservations/${id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
         logActivity(`Reserva #${id} actualizada`, '🎫');
         fetchReservations();
     } catch (e) { showToast('Error', 'error'); }
@@ -431,8 +491,12 @@ document.querySelectorAll('.mobile-tab').forEach(btn => {
     };
 });
 
-fetchOrders(true);
+if(authToken) {
+    fetchOrders(true);
+}
 autoRefreshInterval = setInterval(() => {
-    if(document.getElementById('tab-orders').classList.contains('active')) fetchOrders(false);
-    if(document.getElementById('tab-reservations').classList.contains('active')) fetchReservations(false);
+    if(authToken) {
+        if(document.getElementById('tab-orders').classList.contains('active')) fetchOrders(false);
+        if(document.getElementById('tab-reservations').classList.contains('active')) fetchReservations(false);
+    }
 }, 10000);

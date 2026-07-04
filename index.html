@@ -8,6 +8,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
 <body class="comfort-view"> <!-- comfort-view by default -->
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-overlay active">
+        <div class="login-card">
+            <h1 class="logo" style="font-size:2rem; text-align:center; margin-bottom: 20px;">TGR <span>Staff Portal</span></h1>
+            <p style="color:var(--color-text-muted); text-align:center; margin-bottom: 20px;">Acceso restringido a personal autorizado.</p>
+            <form id="login-form">
+                <input type="email" id="login-email" placeholder="Correo Electrónico" required class="search-input" style="width:100%; margin-bottom:15px; padding:12px;">
+                <input type="password" id="login-password" placeholder="Contraseña" required class="search-input" style="width:100%; margin-bottom:20px; padding:12px;">
+                <button type="submit" class="btn-fill" style="width:100%; padding:12px; font-size:1rem;">Ingresar al Sistema</button>
+            </form>
+            <div id="login-error" style="color:var(--color-danger); text-align:center; margin-top:10px; display:none;">Credenciales incorrectas</div>
+        </div>
+    </div>
+
     <header class="admin-header">
         <div class="logo">TGR <span>Staff Portal</span></div>
         <div class="header-status">
