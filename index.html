@@ -19,6 +19,42 @@
     <main class="admin-container">
         <!-- VISTA PEDIDOS (KANBAN) -->
         <section id="view-orders" class="admin-view active-view">
+            
+            <!-- Resumen del Día (KPIs) -->
+            <div class="kpi-container">
+                <div class="kpi-card">
+                    <span class="kpi-title">Ventas de Hoy</span>
+                    <span class="kpi-value" id="kpi-sales">$0.00</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-title">Completados</span>
+                    <span class="kpi-value" id="kpi-completed">0</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-title">Pendientes</span>
+                    <span class="kpi-value" id="kpi-pending">0</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-title">Cancelados</span>
+                    <span class="kpi-value" id="kpi-cancelled">0</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-title">Ticket Promedio</span>
+                    <span class="kpi-value" id="kpi-average">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Buscador y Filtros -->
+            <div class="filters-bar">
+                <input type="text" id="search-orders" placeholder="Buscar por # Pedido, Nombre o Teléfono..." class="search-input">
+                <div class="filter-chips">
+                    <button class="filter-btn active" data-filter="all">Todos</button>
+                    <button class="filter-btn" data-filter="pickup">Para Recoger</button>
+                    <button class="filter-btn" data-filter="local">En Local</button>
+                    <button class="filter-btn" data-filter="delivery">Envío</button>
+                </div>
+            </div>
+
             <div class="kanban-board">
                 <!-- Columna Pendientes -->
                 <div class="kanban-col">
@@ -65,6 +101,41 @@
             </div>
         </section>
     </main>
+
+    <!-- Modal Detalles del Pedido -->
+    <div id="order-detail-modal" class="modal-overlay">
+        <div class="modal-content detail-modal">
+            <div class="modal-header">
+                <h2>Detalle del Pedido <span id="modal-ticket-id">#000</span></h2>
+                <button class="close-modal" id="close-detail-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-detail-body">
+                <!-- JS Render -->
+            </div>
+            <div class="modal-footer" id="modal-detail-actions">
+                <!-- Botones de Acción Rápida -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ticket de Cocina -->
+    <div id="kitchen-ticket-modal" class="modal-overlay">
+        <div class="modal-content kitchen-modal">
+            <div class="modal-header">
+                <h2>Ticket de Cocina <span id="kitchen-ticket-id">#000</span></h2>
+                <button class="close-modal" id="close-kitchen-modal">&times;</button>
+            </div>
+            <div class="kitchen-ticket-body" id="kitchen-ticket-body">
+                <!-- JS Render Formato Simple -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="window.print()">Imprimir Ticket</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="js/app.js"></script>
 </body>
