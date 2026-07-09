@@ -772,3 +772,234 @@ prodForm.onsubmit = async (e) => {
         showToast('Error: ' + err.message);
     }
 };
+
+/* ==========================================
+   INVENTORY LOGIC
+   ========================================== */
+
+let adminIngredientsList = [];
+
+// Tab Logic for Inventory
+document.getElementById('tab-inventory').addEventListener('click', () => {
+    switchTab('view-inventory');
+    fetchAdminIngredients(true);
+});
+
+async function fetchAdminIngredients(showLoader = true) {
+    if (showLoader) {
+        const tbody = document.getElementById('inventory-table-body');
+        tbody.innerHTML = Array(4).fill(0).map(() => `
+            <tr class="skeleton-row">
+                <td class="cell-product"><div class="skeleton-box" style="width: 200px;"></div></td>
+                <td data-label="Stock Actual"><div class="skeleton-box" style="width: 80px;"></div></td>
+                <td data-label="Stock Mínimo"><div class="skeleton-box" style="width: 80px;"></div></td>
+                <td data-label="Medida"><div class="skeleton-box" style="width: 50px;"></div></td>
+                <td data-label="Acciones"><div class="skeleton-box" style="width: 120px; margin: 0 auto;"></div></td>
+            </tr>
+        `).join('');
+    }
+    
+    try {
+        const res = await authFetch(API_BASE + '/ingredients');
+        if (!res.ok) throw new Error();
+        adminIngredientsList = await res.json();
+        filterAndRenderInventory();
+    } catch (error) {
+        document.getElementById('inventory-table-body').innerHTML = `
+            <tr><td colspan="5" class="catalog-empty-state">
+                <div style="color: var(--color-danger); margin-bottom: 10px; font-size: 2rem;">⚠️</div>
+                No se pudo cargar el inventario. Intenta recargar la página.
+            </td></tr>
+        `;
+    }
+}
+
+function filterAndRenderInventory() {
+    const searchTerm = document.getElementById('search-inventory').value.toLowerCase().trim();
+    const statusFilter = document.getElementById('filter-stock-status').value;
+    
+    let filtered = adminIngredientsList.filter(ing => {
+        const matchSearch = ing.name.toLowerCase().includes(searchTerm) || ing.sku.toLowerCase().includes(searchTerm);
+        
+        const isLowStock = parseFloat(ing.current_stock) <= parseFloat(ing.minimum_stock);
+        const matchStatus = statusFilter === 'all' || 
+                            (statusFilter === 'low' && isLowStock) || 
+                            (statusFilter === 'ok' && !isLowStock);
+        
+        return matchSearch && matchStatus;
+    });
+    
+    renderInventoryTable(filtered);
+}
+
+document.getElementById('search-inventory').addEventListener('input', filterAndRenderInventory);
+document.getElementById('filter-stock-status').addEventListener('change', filterAndRenderInventory);
+
+function renderInventoryTable(list) {
+    const tbody = document.getElementById('inventory-table-body');
+    tbody.innerHTML = '';
+    
+    if (adminIngredientsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="catalog-empty-state">No hay insumos registrados en el almacén.</td></tr>';
+        return;
+    }
+    
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="catalog-empty-state">No se encontraron insumos con esos filtros.</td></tr>';
+        return;
+    }
+    
+    list.forEach(ing => {
+        const tr = document.createElement('tr');
+        
+        const currentStock = parseFloat(ing.current_stock);
+        const minStock = parseFloat(ing.minimum_stock);
+        let stockClass = '';
+        if (currentStock <= minStock) {
+            stockClass = 'stock-critical';
+        } else if (currentStock <= minStock * 1.2) {
+            stockClass = 'stock-warning';
+        }
+        
+        tr.innerHTML = `
+            <td class="cell-product">
+                <div class="catalog-product-info">
+                    <span class="catalog-product-name">${safeStr(ing.name)}</span>
+                    <span class="catalog-product-sku">SKU: ${safeStr(ing.sku)}</span>
+                </div>
+            </td>
+            <td data-label="Stock Actual" class="${stockClass}" style="font-size:1.1rem;">${currentStock.toFixed(2)}</td>
+            <td data-label="Stock Mínimo">${minStock.toFixed(2)}</td>
+            <td data-label="Medida">${safeStr(ing.unit_of_measure)}</td>
+            <td data-label="Acciones" style="text-align: center;">
+                <button class="btn-outline" style="padding:6px 10px; font-size:0.85rem; margin-right:5px;" onclick="openTransactionModal(${ing.id})">🔄 Movimiento</button>
+                <button class="btn-outline" style="padding:6px 10px; font-size:0.85rem;" onclick="editIngredient(${ing.id})">✏️ Editar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// INGREDIENT MODAL LOGIC
+const modalIng = document.getElementById('ingredient-modal');
+document.getElementById('btn-new-ingredient').addEventListener('click', () => {
+    document.getElementById('ingredient-form').reset();
+    document.getElementById('ing-id').value = '';
+    document.getElementById('ingredient-modal-title').innerText = 'Nuevo Insumo';
+    modalIng.classList.remove('hidden');
+});
+
+document.getElementById('close-ingredient-modal').addEventListener('click', () => modalIng.classList.add('hidden'));
+document.getElementById('btn-cancel-ing').addEventListener('click', () => modalIng.classList.add('hidden'));
+
+document.getElementById('ingredient-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('ing-id').value;
+    
+    const payload = {
+        sku: document.getElementById('ing-sku').value,
+        name: document.getElementById('ing-name').value,
+        unit_of_measure: document.getElementById('ing-unit').value,
+        minimum_stock: document.getElementById('ing-min-stock').value,
+        cost_per_unit: document.getElementById('ing-cost').value
+    };
+    
+    // If it's a new ingredient, we set initial stock to 0
+    if (!id) {
+        payload.current_stock = 0;
+    }
+    
+    const url = id ? API_BASE + '/ingredients/' + id : API_BASE + '/ingredients';
+    const method = id ? 'PUT' : 'POST';
+    
+    try {
+        const res = await authFetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if(!res.ok) throw new Error();
+        modalIng.classList.add('hidden');
+        showToast('Insumo guardado correctamente');
+        fetchAdminIngredients(false);
+    } catch(err) {
+        showToast('Error al guardar el insumo');
+    }
+});
+
+window.editIngredient = (id) => {
+    const ing = adminIngredientsList.find(i => i.id == id);
+    if (!ing) return;
+    
+    document.getElementById('ingredient-modal-title').innerText = 'Editar Insumo';
+    document.getElementById('ing-id').value = ing.id;
+    document.getElementById('ing-sku').value = ing.sku;
+    document.getElementById('ing-name').value = ing.name;
+    document.getElementById('ing-unit').value = ing.unit_of_measure;
+    document.getElementById('ing-min-stock').value = ing.minimum_stock;
+    document.getElementById('ing-cost').value = ing.cost_per_unit;
+    
+    modalIng.classList.remove('hidden');
+};
+
+// TRANSACTION MODAL LOGIC
+const modalTrans = document.getElementById('transaction-modal');
+
+window.openTransactionModal = (id) => {
+    const ing = adminIngredientsList.find(i => i.id == id);
+    if (!ing) return;
+    
+    document.getElementById('transaction-form').reset();
+    document.getElementById('trans-ing-id').value = ing.id;
+    document.getElementById('trans-ing-name').innerText = ing.name;
+    document.getElementById('trans-ing-stock').innerText = parseFloat(ing.current_stock).toFixed(2);
+    document.getElementById('trans-ing-unit').innerText = ing.unit_of_measure;
+    
+    // Update label based on select
+    document.getElementById('trans-type').dispatchEvent(new Event('change'));
+    
+    modalTrans.classList.remove('hidden');
+};
+
+document.getElementById('close-transaction-modal').addEventListener('click', () => modalTrans.classList.add('hidden'));
+document.getElementById('btn-cancel-trans').addEventListener('click', () => modalTrans.classList.add('hidden'));
+
+document.getElementById('trans-type').addEventListener('change', (e) => {
+    const val = e.target.value;
+    const lbl = document.getElementById('lbl-trans-action');
+    if (val === 'restock') lbl.innerText = 'sumar';
+    else if (val === 'waste') lbl.innerText = 'restar (merma)';
+    else lbl.innerText = 'ajustar';
+});
+
+document.getElementById('transaction-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('trans-ing-id').value;
+    const type = document.getElementById('trans-type').value;
+    const qty = document.getElementById('trans-qty').value;
+    
+    try {
+        const res = await authFetch(API_BASE + '/inventory/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ingredient_id: id,
+                transaction_type: type,
+                quantity: qty
+            })
+        });
+        
+        if(!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.message || 'Error');
+        }
+        
+        modalTrans.classList.add('hidden');
+        showToast('Movimiento registrado con éxito');
+        fetchAdminIngredients(false);
+    } catch(err) {
+        showToast(err.message || 'Error al registrar el movimiento');
+    }
+});
+

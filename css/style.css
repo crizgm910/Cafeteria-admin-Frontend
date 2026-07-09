@@ -411,3 +411,25 @@ body.kitchen-mode .kanban-col { max-height: calc(100vh - 150px); }
         display: none; /* No label for main product cell */
     }
 }
+
+/* ==========================================
+   INVENTARIO Y STOCK ALERTAS
+   ========================================== */
+
+.stock-warning {
+    color: #ffc107 !important;
+    font-weight: bold;
+}
+
+.stock-critical {
+    color: #dc3545 !important;
+    font-weight: bold;
+    animation: pulse-danger 2s infinite;
+}
+
+@keyframes pulse-danger {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+

@@ -40,7 +40,12 @@
     <nav class="admin-nav-main">
         <button class="nav-btn active" id="tab-orders">Pedidos (Kitchen)</button>
         <button class="nav-btn" id="tab-reservations">Reservas</button>
-        <button class="nav-btn" id="tab-products">📦 Productos</button>
+        <button class="menu-item" id="tab-products">
+            <span>📦 Productos</span>
+        </button>
+        <button class="menu-item" id="tab-inventory">
+            <span>🗄️ Almacén / Inventario</span>
+        </button>
     </nav>
 
     <main class="admin-container">
@@ -239,6 +244,48 @@
                 </table>
             </div>
         </section>
+
+        <!-- VISTA INVENTARIO -->
+        <section id="view-inventory" class="admin-view hidden">
+            <div class="catalog-header" style="margin-bottom: 25px;">
+                <h2 style="font-size: 1.8rem; margin-bottom: 5px; color: var(--color-gold);">Almacén e Inventario</h2>
+                <p style="color: var(--color-text-muted); font-size: 0.95rem; margin-top: 0;">Gestiona los insumos, niveles de stock y registra mermas o reabastecimientos.</p>
+            </div>
+            
+            <div class="catalog-toolbar" style="display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 250px;">
+                    <input type="text" id="search-inventory" placeholder="Buscar insumo por nombre o SKU..." class="search-input" style="width: 100%; padding: 10px 15px;">
+                </div>
+                <div>
+                    <select id="filter-stock-status" class="search-input" style="padding: 10px 15px; cursor: pointer;">
+                        <option value="all">Todos los niveles de stock</option>
+                        <option value="low">Stock Bajo Mínimo</option>
+                        <option value="ok">Stock Óptimo</option>
+                    </select>
+                </div>
+                <div style="margin-left: auto;">
+                    <button class="btn-primary" id="btn-new-ingredient" style="padding: 10px 20px;">➕ Nuevo Insumo</button>
+                </div>
+            </div>
+
+            <div class="res-list-container catalog-table-container">
+                <table class="res-table catalog-table" id="inventory-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Insumo (SKU)</th>
+                            <th style="width: 15%;">Stock Actual</th>
+                            <th style="width: 15%;">Stock Mínimo</th>
+                            <th style="width: 10%;">Medida</th>
+                            <th style="width: 20%; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-table-body">
+                        <!-- JS Render -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
     </section>
 
@@ -348,6 +395,98 @@
             <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px; margin-top: 0;">
                 <button type="button" class="btn-outline" id="btn-cancel-prod" style="padding: 10px 20px;">Cancelar</button>
                 <button type="submit" form="product-form" class="btn-primary" style="padding: 10px 20px;">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ingrediente (Inventario) -->
+    <div id="ingredient-modal" class="modal-overlay hidden">
+        <div class="modal-content catalog-modal-content" style="max-width: 500px; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                <h2 id="ingredient-modal-title" style="margin: 0; color: var(--color-gold);">Nuevo Insumo</h2>
+                <button class="close-modal" id="close-ingredient-modal">&times;</button>
+            </div>
+            
+            <div class="modal-body" style="padding: 20px 0; flex: 1;">
+                <form id="ingredient-form">
+                    <input type="hidden" id="ing-id">
+                    <div style="margin-bottom:15px; padding: 0 20px;">
+                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Nombre del Insumo:</label>
+                        <input type="text" id="ing-name" required class="search-input" style="width:100%;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px; display:flex; gap:15px; padding: 0 20px;">
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">SKU:</label>
+                            <input type="text" id="ing-sku" required class="search-input" style="width:100%; text-transform: uppercase;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">U. de Medida:</label>
+                            <select id="ing-unit" class="search-input" style="width:100%;" required>
+                                <option value="Kg">Kilogramos (Kg)</option>
+                                <option value="Gr">Gramos (Gr)</option>
+                                <option value="Lt">Litros (Lt)</option>
+                                <option value="Ml">Mililitros (Ml)</option>
+                                <option value="Pz">Piezas (Pz)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom:15px; display:flex; gap:15px; padding: 0 20px;">
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Stock Mínimo (Alerta):</label>
+                            <input type="number" step="0.01" id="ing-min-stock" required class="search-input" style="width:100%;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Costo por Unidad ($):</label>
+                            <input type="number" step="0.01" id="ing-cost" required class="search-input" style="width:100%;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-outline" id="btn-cancel-ing" style="padding: 10px 20px;">Cancelar</button>
+                <button type="submit" form="ingredient-form" class="btn-primary" style="padding: 10px 20px;">Guardar Insumo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Transacción de Inventario -->
+    <div id="transaction-modal" class="modal-overlay hidden">
+        <div class="modal-content catalog-modal-content" style="max-width: 450px;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                <h2 style="margin: 0; color: var(--color-gold);">Registrar Movimiento</h2>
+                <button class="close-modal" id="close-transaction-modal">&times;</button>
+            </div>
+            
+            <div class="modal-body" style="padding: 20px 0;">
+                <form id="transaction-form">
+                    <input type="hidden" id="trans-ing-id">
+                    <div style="padding: 0 20px; margin-bottom: 15px;">
+                        <p style="color: white; font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;" id="trans-ing-name">-</p>
+                        <p style="color: var(--color-text-muted); font-size: 0.9rem; margin-top:0;">Stock Actual: <span id="trans-ing-stock">0</span> <span id="trans-ing-unit"></span></p>
+                    </div>
+
+                    <div style="margin-bottom:15px; padding: 0 20px;">
+                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Tipo de Movimiento:</label>
+                        <select id="trans-type" class="search-input" style="width:100%;" required>
+                            <option value="restock">Entrada (Reabastecimiento)</option>
+                            <option value="waste">Salida (Merma / Desperdicio)</option>
+                            <option value="adjustment">Ajuste Manual</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom:15px; padding: 0 20px;">
+                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Cantidad a <span id="lbl-trans-action">sumar</span>:</label>
+                        <input type="number" step="0.01" id="trans-qty" required class="search-input" style="width:100%;">
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-outline" id="btn-cancel-trans" style="padding: 10px 20px;">Cancelar</button>
+                <button type="submit" form="transaction-form" class="btn-primary" style="padding: 10px 20px;">Confirmar Movimiento</button>
             </div>
         </div>
     </div>
