@@ -375,15 +375,57 @@ window.openKitchenTicket = (id) => {
 window.openReceiptTicket = (id) => {
     const ticket = allTickets.find(t => t.id == id || t.ticket_number == id);
     if (!ticket) return;
-    let html = `<div class="print-header"><h1>TGR RECEIPT</h1><p style="font-size:1.3rem; font-weight:bold;">PEDIDO #${safeStr(ticket.ticket_number, ticket.id)}</p></div>`;
+    
+    const d = new Date(ticket.created_at);
+    const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    let paymentMethodStr = 'Desconocido';
+    if (ticket.payments && ticket.payments.length > 0) {
+        paymentMethodStr = ticket.payments[0].gateway_provider === 'cash' ? 'Efectivo' : 'Tarjeta';
+    }
+    const customerName = ticket.customer_name ? `<p style="margin:2px 0;"><strong>Cliente:</strong> ${safeStr(ticket.customer_name)}</p>` : '';
+    const orderType = ticket.order_type === 'takeaway' ? 'Para llevar' : (ticket.order_type === 'dine_in' ? 'Comer aquí' : 'Local');
+    
+    let html = `
+        <div class="print-header">
+            <h1 style="margin-bottom:5px;">TGR RECEIPT</h1>
+            <p style="font-size:1.3rem; font-weight:bold; margin-bottom:0;">PEDIDO #${safeStr(ticket.ticket_number, ticket.id)}</p>
+        </div>
+        <div style="font-size:1.1rem; margin-bottom:15px; border-bottom:1px dashed #000; padding-bottom:10px;">
+            <p style="margin:2px 0;"><strong>Fecha:</strong> ${dateStr}</p>
+            ${customerName}
+            <p style="margin:2px 0;"><strong>Tipo:</strong> ${orderType}</p>
+            <p style="margin:2px 0;"><strong>Pago:</strong> ${paymentMethodStr}</p>
+        </div>
+    `;
+    
     if (ticket.items) {
         ticket.items.forEach(i => {
             const pName = i.product ? safeStr(i.product.name, '') : '';
-            html += `<div class="print-item" style="display:flex; justify-content:space-between; margin-bottom:5px;"><strong style="font-size:1.2rem;">${i.quantity} x ${pName}</strong><strong style="font-size:1.2rem;">${formatMoney(i.subtotal)}</strong></div>`;
+            html += `<div class="print-item" style="display:flex; justify-content:space-between; margin-bottom:0;"><strong style="font-size:1.2rem;">${i.quantity} x ${pName}</strong><strong style="font-size:1.2rem;">${formatMoney(i.subtotal)}</strong></div>`;
+            
+            if (i.add_ons && i.add_ons.length > 0) {
+                i.add_ons.forEach(addon => {
+                     html += `<div style="display:flex; justify-content:space-between; font-size:1rem; padding-left:15px; color:#555;"><span>+ ${addon.name}</span></div>`;
+                });
+            }
+            if (i.notes) {
+                html += `<div style="font-size:1rem; padding-left:15px; font-style:italic;">Nota: ${safeStr(i.notes)}</div>`;
+            }
+            html += `<div style="margin-bottom:10px;"></div>`;
         });
     }
-    html += `<div style="border-top:1px dashed #000; margin-top:10px; padding-top:10px; display:flex; justify-content:space-between; font-weight:bold; font-size:1.4rem;"><span>TOTAL</span><span>${formatMoney(ticket.total)}</span></div>`;
-    html += `<p style="text-align:center; margin-top:20px; font-size:1.2rem;">¡Gracias por su preferencia!</p>`;
+    
+    const subtotal = ticket.total / 1.16;
+    const iva = ticket.total - subtotal;
+    
+    html += `
+        <div style="border-top:1px dashed #000; margin-top:10px; padding-top:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem;"><span>Subtotal</span><span>${formatMoney(subtotal)}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem;"><span>IVA (16%)</span><span>${formatMoney(iva)}</span></div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.4rem; margin-top:5px;"><span>TOTAL</span><span>${formatMoney(ticket.total)}</span></div>
+        </div>
+        <p style="text-align:center; margin-top:20px; font-size:1.1rem;">¡Gracias por su preferencia!</p>
+    `;
     
     document.getElementById('kitchen-ticket-body').innerHTML = html;
     document.getElementById('kitchen-ticket-modal').classList.add('active');
@@ -508,14 +550,39 @@ window.updateResStatus = async (id, status) => {
 
 /* TAB LOGIC */
 document.getElementById('tab-orders').onclick = () => {
-    document.getElementById('tab-orders').classList.add('active'); document.getElementById('tab-reservations').classList.remove('active');
-    document.getElementById('view-orders').classList.add('active-view'); document.getElementById('view-reservations').classList.remove('active-view');
+    document.getElementById('tab-orders').classList.add('active'); 
+    document.getElementById('tab-reservations').classList.remove('active');
+    document.getElementById('tab-products').classList.remove('active');
+    
+    document.getElementById('view-orders').classList.add('active-view'); 
+    document.getElementById('view-reservations').classList.remove('active-view');
+    document.getElementById('view-products').classList.remove('active-view');
+    
     fetchOrders(true);
 };
+
 document.getElementById('tab-reservations').onclick = () => {
-    document.getElementById('tab-reservations').classList.add('active'); document.getElementById('tab-orders').classList.remove('active');
-    document.getElementById('view-reservations').classList.add('active-view'); document.getElementById('view-orders').classList.remove('active-view');
+    document.getElementById('tab-reservations').classList.add('active'); 
+    document.getElementById('tab-orders').classList.remove('active');
+    document.getElementById('tab-products').classList.remove('active');
+    
+    document.getElementById('view-reservations').classList.add('active-view'); 
+    document.getElementById('view-orders').classList.remove('active-view');
+    document.getElementById('view-products').classList.remove('active-view');
+    
     fetchReservations(true);
+};
+
+document.getElementById('tab-products').onclick = () => {
+    document.getElementById('tab-products').classList.add('active'); 
+    document.getElementById('tab-orders').classList.remove('active');
+    document.getElementById('tab-reservations').classList.remove('active');
+    
+    document.getElementById('view-products').classList.add('active-view'); 
+    document.getElementById('view-orders').classList.remove('active-view');
+    document.getElementById('view-reservations').classList.remove('active-view');
+    
+    fetchAdminProducts(true);
 };
 
 /* Mobile Tabs Kanban */
@@ -531,9 +598,124 @@ document.querySelectorAll('.mobile-tab').forEach(btn => {
 if(authToken) {
     fetchOrders(true);
 }
-autoRefreshInterval = setInterval(() => {
+let autoRefreshInterval = setInterval(() => {
     if(authToken) {
         if(document.getElementById('tab-orders').classList.contains('active')) fetchOrders(false);
         if(document.getElementById('tab-reservations').classList.contains('active')) fetchReservations(false);
+        // Products rarely change automatically, so we don't strict-poll them unless needed, or we could.
     }
 }, 10000);
+
+/* ==========================================
+   PRODUCTS CRUD LOGIC
+   ========================================== */
+
+let adminProductsList = [];
+
+async function fetchAdminProducts(showLoader = true) {
+    if (showLoader) document.getElementById('products-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center;">Cargando productos...</td></tr>';
+    
+    try {
+        const res = await authFetch(`${API_BASE}/products`);
+        if (!res.ok) throw new Error();
+        adminProductsList = await res.json();
+        renderProductsTable();
+    } catch (error) {
+        showToast('Error cargando el catálogo');
+    }
+}
+
+function renderProductsTable() {
+    const tbody = document.getElementById('products-table-body');
+    tbody.innerHTML = '';
+    
+    if (adminProductsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay productos en el catálogo.</td></tr>';
+        return;
+    }
+    
+    adminProductsList.forEach(p => {
+        const tr = document.createElement('tr');
+        const isAct = p.active == 1;
+        tr.innerHTML = `
+            <td>${safeStr(p.sku)}</td>
+            <td><img src="http://127.0.0.1:8080/${safeStr(p.image_url)}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;"></td>
+            <td><strong>${safeStr(p.name)}</strong></td>
+            <td>${p.category ? safeStr(p.category.name) : 'N/A'}</td>
+            <td>$${parseFloat(p.price).toFixed(2)}</td>
+            <td><span class="status-badge ${isAct ? 'status-ready' : 'status-cancelled'}">${isAct ? 'Activo' : 'Inactivo'}</span></td>
+            <td>
+                <button class="btn-outline" style="padding:4px 8px; font-size:0.9rem;" onclick="editProduct(${p.id})">✏️ Editar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+const prodModal = document.getElementById('product-modal');
+const prodForm = document.getElementById('product-form');
+
+document.getElementById('btn-new-product').onclick = () => {
+    prodForm.reset();
+    document.getElementById('prod-id').value = '';
+    document.getElementById('product-modal-title').textContent = 'Nuevo Producto';
+    document.getElementById('prod-active').checked = true;
+    prodModal.classList.add('active');
+};
+
+document.getElementById('close-product-modal').onclick = () => {
+    prodModal.classList.remove('active');
+};
+
+window.editProduct = (id) => {
+    const p = adminProductsList.find(x => x.id === id);
+    if (!p) return;
+    
+    document.getElementById('prod-id').value = p.id;
+    document.getElementById('prod-name').value = p.name;
+    document.getElementById('prod-sku').value = p.sku;
+    document.getElementById('prod-price').value = p.price;
+    document.getElementById('prod-category').value = p.category_id;
+    document.getElementById('prod-image').value = p.image_url || '';
+    document.getElementById('prod-desc').value = p.description || '';
+    document.getElementById('prod-active').checked = p.active == 1;
+    
+    document.getElementById('product-modal-title').textContent = 'Editar Producto';
+    prodModal.classList.add('active');
+};
+
+prodForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('prod-id').value;
+    const payload = {
+        name: document.getElementById('prod-name').value,
+        sku: document.getElementById('prod-sku').value,
+        price: parseFloat(document.getElementById('prod-price').value),
+        category_id: parseInt(document.getElementById('prod-category').value),
+        image_url: document.getElementById('prod-image').value,
+        description: document.getElementById('prod-desc').value,
+        active: document.getElementById('prod-active').checked
+    };
+    
+    try {
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
+        
+        const res = await authFetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.message || 'Error guardando');
+        }
+        
+        showToast('Producto guardado correctamente', '✅');
+        prodModal.classList.remove('active');
+        fetchAdminProducts(true);
+    } catch(err) {
+        showToast('Error: ' + err.message);
+    }
+};
