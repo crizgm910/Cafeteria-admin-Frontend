@@ -552,8 +552,7 @@ window.updateResStatus = async (id, status) => {
 const tabs = [
     { btn: 'tab-orders', view: 'view-orders', fetchFn: () => fetchOrders(true) },
     { btn: 'tab-reservations', view: 'view-reservations', fetchFn: () => fetchReservations(true) },
-    { btn: 'tab-products', view: 'view-products', fetchFn: () => fetchAdminProducts(true) },
-    { btn: 'tab-inventory', view: 'view-inventory', fetchFn: () => fetchAdminIngredients(true) }
+    { btn: 'tab-products', view: 'view-products', fetchFn: () => { fetchAdminProducts(true); fetchAdminIngredients(true); } }
 ];
 
 tabs.forEach(tab => {

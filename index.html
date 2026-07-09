@@ -40,8 +40,7 @@
     <nav class="admin-nav-main">
         <button class="nav-btn active" id="tab-orders">Pedidos (Kitchen)</button>
         <button class="nav-btn" id="tab-reservations">Reservas</button>
-        <button class="nav-btn" id="tab-products">📦 Productos</button>
-        <button class="nav-btn" id="tab-inventory">🗄️ Almacén / Inventario</button>
+        <button class="nav-btn" id="tab-products">📦 Catálogo y Almacén</button>
     </nav>
 
     <main class="admin-container">
@@ -239,10 +238,9 @@
                     </tbody>
                 </table>
             </div>
-        </section>
-
-        <!-- VISTA INVENTARIO -->
-        <section id="view-inventory" class="admin-view">
+        <div style="margin: 60px 0; border-top: 1px dashed rgba(255,255,255,0.2);"></div>
+        <!-- VISTA INVENTARIO (AHORA INTEGRADA) -->
+        <div id="section-inventory">
             <div class="catalog-header" style="margin-bottom: 25px;">
                 <h2 style="font-size: 1.8rem; margin-bottom: 5px; color: var(--color-gold);">Almacén e Inventario</h2>
                 <p style="color: var(--color-text-muted); font-size: 0.95rem; margin-top: 0;">Gestiona los insumos, niveles de stock y registra mermas o reabastecimientos.</p>
@@ -280,6 +278,11 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <button onclick="document.querySelector('.admin-container').scrollTo({top:0, behavior: 'smooth'})" style="position: fixed; bottom: 30px; right: 30px; background: var(--color-gold); color: #000; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 1000;" title="Volver arriba">
+            ⬆️
+        </button>
         </section>
 
     </main>
