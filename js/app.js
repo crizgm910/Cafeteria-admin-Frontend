@@ -598,7 +598,7 @@ document.querySelectorAll('.mobile-tab').forEach(btn => {
 if(authToken) {
     fetchOrders(true);
 }
-let autoRefreshInterval = setInterval(() => {
+autoRefreshInterval = setInterval(() => {
     if(authToken) {
         if(document.getElementById('tab-orders').classList.contains('active')) fetchOrders(false);
         if(document.getElementById('tab-reservations').classList.contains('active')) fetchReservations(false);
