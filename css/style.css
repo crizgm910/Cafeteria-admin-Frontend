@@ -54,7 +54,7 @@ body {
 
 /* Main Container */
 .admin-container { padding: 20px; height: calc(100vh - 100px); overflow: hidden; }
-.admin-view { display: none; height: 100%; flex-direction: column; }
+.admin-view { display: none; height: 100%; flex-direction: column; overflow-y: auto; }
 .admin-view.active-view { display: flex; }
 
 /* Dashboard Top Section */
