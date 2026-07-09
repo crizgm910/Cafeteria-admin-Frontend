@@ -246,3 +246,168 @@ body.kitchen-mode .kanban-col { max-height: calc(100vh - 150px); }
 .auth-view { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--color-bg); }
 .dashboard-view { min-height: 100vh; display: flex; flex-direction: column; }
 .dashboard-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ==========================================
+   CATALOGO DE PRODUCTOS (ADMIN UI)
+   ========================================== */
+
+/* Badges de estado modernos */
+.catalog-badge-active {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    display: inline-block;
+}
+
+.catalog-badge-inactive {
+    background-color: rgba(108, 117, 125, 0.2);
+    color: #adb5bd;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+    display: inline-block;
+}
+
+/* Celda de Producto combinada */
+.catalog-product-cell {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.catalog-product-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--color-border);
+    background: #000;
+}
+
+.catalog-product-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.catalog-product-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.catalog-product-sku {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-top: 3px;
+    font-family: monospace;
+}
+
+/* Filas y tabla */
+.catalog-table th {
+    padding: 15px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid var(--color-border);
+}
+
+.catalog-table td {
+    padding: 12px 15px;
+    vertical-align: middle;
+}
+
+.catalog-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.catalog-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Skeletons and Empty State */
+.skeleton-row td {
+    padding: 15px;
+}
+
+.skeleton-box {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+    height: 20px;
+}
+
+.catalog-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Responsive Catalog Table to Cards */
+@media (max-width: 768px) {
+    .catalog-table-container {
+        border: none;
+        background: transparent;
+    }
+    
+    .catalog-table thead {
+        display: none;
+    }
+    
+    .catalog-table tbody tr {
+        display: flex;
+        flex-direction: column;
+        background: var(--color-surface);
+        margin-bottom: 15px;
+        border-radius: 8px;
+        border: 1px solid var(--color-border);
+        padding: 15px;
+        position: relative;
+    }
+    
+    .catalog-table td {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .catalog-table td:last-child {
+        border-bottom: none;
+        justify-content: center;
+        padding-top: 15px;
+    }
+    
+    .catalog-table td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: var(--color-gold);
+        text-transform: uppercase;
+        font-size: 0.8rem;
+    }
+    
+    /* Celda principal en movil */
+    .catalog-table td.cell-product {
+        flex-direction: row;
+        justify-content: flex-start;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 15px;
+    }
+    
+    .catalog-table td.cell-product::before {
+        display: none; /* No label for main product cell */
+    }
+}

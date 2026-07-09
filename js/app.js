@@ -613,39 +613,92 @@ autoRefreshInterval = setInterval(() => {
 let adminProductsList = [];
 
 async function fetchAdminProducts(showLoader = true) {
-    if (showLoader) document.getElementById('products-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center;">Cargando productos...</td></tr>';
+    if (showLoader) {
+        const tbody = document.getElementById('products-table-body');
+        tbody.innerHTML = Array(4).fill(0).map(() => `
+            <tr class="skeleton-row">
+                <td class="cell-product"><div class="skeleton-box" style="width: 200px;"></div></td>
+                <td data-label="Categoría"><div class="skeleton-box" style="width: 100px;"></div></td>
+                <td data-label="Precio"><div class="skeleton-box" style="width: 60px;"></div></td>
+                <td data-label="Estado"><div class="skeleton-box" style="width: 80px; border-radius: 20px;"></div></td>
+                <td data-label="Acciones"><div class="skeleton-box" style="width: 80px; margin: 0 auto;"></div></td>
+            </tr>
+        `).join('');
+    }
     
     try {
         const res = await authFetch(`${API_BASE}/products`);
         if (!res.ok) throw new Error();
         adminProductsList = await res.json();
-        renderProductsTable();
+        filterAndRenderProducts();
     } catch (error) {
-        showToast('Error cargando el catálogo');
+        document.getElementById('products-table-body').innerHTML = `
+            <tr><td colspan="5" class="catalog-empty-state">
+                <div style="color: var(--color-danger); margin-bottom: 10px; font-size: 2rem;">⚠️</div>
+                No se pudo cargar el catálogo. Intenta recargar la página.
+            </td></tr>
+        `;
     }
 }
 
-function renderProductsTable() {
+function filterAndRenderProducts() {
+    const searchTerm = document.getElementById('search-products').value.toLowerCase().trim();
+    const catFilter = document.getElementById('filter-category').value;
+    const statusFilter = document.getElementById('filter-status').value;
+    
+    let filtered = adminProductsList.filter(p => {
+        const matchSearch = p.name.toLowerCase().includes(searchTerm) || p.sku.toLowerCase().includes(searchTerm);
+        const matchCat = catFilter === 'all' || p.category_id == catFilter;
+        const matchStatus = statusFilter === 'all' || 
+                            (statusFilter === 'active' && p.active == 1) || 
+                            (statusFilter === 'inactive' && p.active == 0);
+        
+        return matchSearch && matchCat && matchStatus;
+    });
+    
+    renderProductsTable(filtered);
+}
+
+document.getElementById('search-products').addEventListener('input', filterAndRenderProducts);
+document.getElementById('filter-category').addEventListener('change', filterAndRenderProducts);
+document.getElementById('filter-status').addEventListener('change', filterAndRenderProducts);
+
+function renderProductsTable(list) {
     const tbody = document.getElementById('products-table-body');
     tbody.innerHTML = '';
     
     if (adminProductsList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay productos en el catálogo.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" class="catalog-empty-state">No hay productos registrados en la base de datos.</td></tr>`;
         return;
     }
     
-    adminProductsList.forEach(p => {
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="catalog-empty-state">No se encontraron productos con esos filtros.</td></tr>`;
+        return;
+    }
+    
+    list.forEach(p => {
         const tr = document.createElement('tr');
         const isAct = p.active == 1;
+        const badgeClass = isAct ? 'catalog-badge-active' : 'catalog-badge-inactive';
+        const statusText = isAct ? 'Activo' : 'Inactivo';
+        const imgUrl = p.image_url ? `http://127.0.0.1:8080/${safeStr(p.image_url)}` : 'http://127.0.0.1:8080/img/placeholder.png'; // Fallback image if needed, though safeStr handles nulls, a placeholder is better but sticking to provided structure.
+        
         tr.innerHTML = `
-            <td>${safeStr(p.sku)}</td>
-            <td><img src="http://127.0.0.1:8080/${safeStr(p.image_url)}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;"></td>
-            <td><strong>${safeStr(p.name)}</strong></td>
-            <td>${p.category ? safeStr(p.category.name) : 'N/A'}</td>
-            <td>$${parseFloat(p.price).toFixed(2)}</td>
-            <td><span class="status-badge ${isAct ? 'status-ready' : 'status-cancelled'}">${isAct ? 'Activo' : 'Inactivo'}</span></td>
-            <td>
-                <button class="btn-outline" style="padding:4px 8px; font-size:0.9rem;" onclick="editProduct(${p.id})">✏️ Editar</button>
+            <td class="cell-product">
+                <div class="catalog-product-cell">
+                    <img src="http://127.0.0.1:8080/${safeStr(p.image_url)}" class="catalog-product-img" alt="${safeStr(p.name)}" onerror="this.src=''; this.style.display='none';">
+                    <div class="catalog-product-info">
+                        <span class="catalog-product-name">${safeStr(p.name)}</span>
+                        <span class="catalog-product-sku">SKU: ${safeStr(p.sku)}</span>
+                    </div>
+                </div>
+            </td>
+            <td data-label="Categoría">${p.category ? safeStr(p.category.name) : 'N/A'}</td>
+            <td data-label="Precio" style="font-family: monospace; font-size: 1.1rem;">$${parseFloat(p.price).toFixed(2)}</td>
+            <td data-label="Estado"><span class="${badgeClass}">${statusText}</span></td>
+            <td data-label="Acciones" style="text-align: center;">
+                <button class="btn-outline" style="padding:6px 12px; font-size:0.9rem;" onclick="editProduct(${p.id})">✏️ Editar</button>
             </td>
         `;
         tbody.appendChild(tr);
