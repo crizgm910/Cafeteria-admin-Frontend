@@ -549,41 +549,27 @@ window.updateResStatus = async (id, status) => {
 };
 
 /* TAB LOGIC */
-document.getElementById('tab-orders').onclick = () => {
-    document.getElementById('tab-orders').classList.add('active'); 
-    document.getElementById('tab-reservations').classList.remove('active');
-    document.getElementById('tab-products').classList.remove('active');
-    
-    document.getElementById('view-orders').classList.add('active-view'); 
-    document.getElementById('view-reservations').classList.remove('active-view');
-    document.getElementById('view-products').classList.remove('active-view');
-    
-    fetchOrders(true);
-};
+const tabs = [
+    { btn: 'tab-orders', view: 'view-orders', fetchFn: () => fetchOrders(true) },
+    { btn: 'tab-reservations', view: 'view-reservations', fetchFn: () => fetchReservations(true) },
+    { btn: 'tab-products', view: 'view-products', fetchFn: () => fetchAdminProducts(true) },
+    { btn: 'tab-inventory', view: 'view-inventory', fetchFn: () => fetchAdminIngredients(true) }
+];
 
-document.getElementById('tab-reservations').onclick = () => {
-    document.getElementById('tab-reservations').classList.add('active'); 
-    document.getElementById('tab-orders').classList.remove('active');
-    document.getElementById('tab-products').classList.remove('active');
-    
-    document.getElementById('view-reservations').classList.add('active-view'); 
-    document.getElementById('view-orders').classList.remove('active-view');
-    document.getElementById('view-products').classList.remove('active-view');
-    
-    fetchReservations(true);
-};
-
-document.getElementById('tab-products').onclick = () => {
-    document.getElementById('tab-products').classList.add('active'); 
-    document.getElementById('tab-orders').classList.remove('active');
-    document.getElementById('tab-reservations').classList.remove('active');
-    
-    document.getElementById('view-products').classList.add('active-view'); 
-    document.getElementById('view-orders').classList.remove('active-view');
-    document.getElementById('view-reservations').classList.remove('active-view');
-    
-    fetchAdminProducts(true);
-};
+tabs.forEach(tab => {
+    document.getElementById(tab.btn).addEventListener('click', () => {
+        // Toggle buttons
+        tabs.forEach(t => document.getElementById(t.btn).classList.remove('active'));
+        document.getElementById(tab.btn).classList.add('active');
+        
+        // Toggle views
+        tabs.forEach(t => document.getElementById(t.view).classList.remove('active-view'));
+        document.getElementById(tab.view).classList.add('active-view');
+        
+        // Trigger fetch
+        tab.fetchFn();
+    });
+});
 
 /* Mobile Tabs Kanban */
 document.querySelectorAll('.mobile-tab').forEach(btn => {
@@ -779,11 +765,7 @@ prodForm.onsubmit = async (e) => {
 
 let adminIngredientsList = [];
 
-// Tab Logic for Inventory
-document.getElementById('tab-inventory').addEventListener('click', () => {
-    switchTab('view-inventory');
-    fetchAdminIngredients(true);
-});
+
 
 async function fetchAdminIngredients(showLoader = true) {
     if (showLoader) {
