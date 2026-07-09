@@ -29,11 +29,11 @@ const loginError = document.getElementById('login-error');
 
 // Auth Logic
 if (authToken) {
-    loginView.classList.add('hidden');
-    dashboardView.classList.remove('hidden');
+    loginView.classList.remove('active');
+    dashboardView.classList.add('active');
 } else {
-    loginView.classList.remove('hidden');
-    dashboardView.classList.add('hidden');
+    loginView.classList.add('active');
+    dashboardView.classList.remove('active');
 }
 
 loginForm.addEventListener('submit', async (e) => {
@@ -57,8 +57,8 @@ loginForm.addEventListener('submit', async (e) => {
         
         authToken = data.token;
         localStorage.setItem('tgr_auth_token', authToken);
-        loginView.classList.add('hidden');
-        dashboardView.classList.remove('hidden');
+        loginView.classList.remove('active');
+        dashboardView.classList.add('active');
         fetchOrders(true);
         fetchReservations(true);
     } catch (err) {
@@ -79,8 +79,8 @@ async function authFetch(url, options = {}) {
     if (res.status === 401) {
         authToken = null;
         localStorage.removeItem('tgr_auth_token');
-        dashboardView.classList.add('hidden');
-        loginView.classList.remove('hidden');
+        dashboardView.classList.remove('active');
+        loginView.classList.add('active');
         throw new Error('No autorizado');
     }
     return res;
@@ -867,11 +867,11 @@ document.getElementById('btn-new-ingredient').addEventListener('click', () => {
     document.getElementById('ingredient-form').reset();
     document.getElementById('ing-id').value = '';
     document.getElementById('ingredient-modal-title').innerText = 'Nuevo Insumo';
-    modalIng.classList.remove('hidden');
+    modalIng.classList.add('active');
 });
 
-document.getElementById('close-ingredient-modal').addEventListener('click', () => modalIng.classList.add('hidden'));
-document.getElementById('btn-cancel-ing').addEventListener('click', () => modalIng.classList.add('hidden'));
+document.getElementById('close-ingredient-modal').addEventListener('click', () => modalIng.classList.remove('active'));
+document.getElementById('btn-cancel-ing').addEventListener('click', () => modalIng.classList.remove('active'));
 
 document.getElementById('ingredient-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -901,7 +901,7 @@ document.getElementById('ingredient-form').addEventListener('submit', async (e) 
         });
         
         if(!res.ok) throw new Error();
-        modalIng.classList.add('hidden');
+        modalIng.classList.remove('active');
         showToast('Insumo guardado correctamente');
         fetchAdminIngredients(false);
     } catch(err) {
@@ -921,7 +921,7 @@ window.editIngredient = (id) => {
     document.getElementById('ing-min-stock').value = ing.minimum_stock;
     document.getElementById('ing-cost').value = ing.cost_per_unit;
     
-    modalIng.classList.remove('hidden');
+    modalIng.classList.add('active');
 };
 
 // TRANSACTION MODAL LOGIC
@@ -940,11 +940,11 @@ window.openTransactionModal = (id) => {
     // Update label based on select
     document.getElementById('trans-type').dispatchEvent(new Event('change'));
     
-    modalTrans.classList.remove('hidden');
+    modalTrans.classList.add('active');
 };
 
-document.getElementById('close-transaction-modal').addEventListener('click', () => modalTrans.classList.add('hidden'));
-document.getElementById('btn-cancel-trans').addEventListener('click', () => modalTrans.classList.add('hidden'));
+document.getElementById('close-transaction-modal').addEventListener('click', () => modalTrans.classList.remove('active'));
+document.getElementById('btn-cancel-trans').addEventListener('click', () => modalTrans.classList.remove('active'));
 
 document.getElementById('trans-type').addEventListener('change', (e) => {
     const val = e.target.value;
@@ -976,7 +976,7 @@ document.getElementById('transaction-form').addEventListener('submit', async (e)
             throw new Error(errData.message || 'Error');
         }
         
-        modalTrans.classList.add('hidden');
+        modalTrans.classList.remove('active');
         showToast('Movimiento registrado con éxito');
         fetchAdminIngredients(false);
     } catch(err) {
