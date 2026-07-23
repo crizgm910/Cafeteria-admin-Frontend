@@ -6,14 +6,18 @@ const root = dirname(fileURLToPath(import.meta.url));
 const source = resolve(root, '..');
 const client = resolve(root, 'dist/client');
 const server = resolve(root, 'dist/server');
+const openai = resolve(root, 'dist/.openai');
 
 await rm(resolve(root, 'dist'), { recursive: true, force: true });
 await mkdir(client, { recursive: true });
 await mkdir(server, { recursive: true });
+await mkdir(openai, { recursive: true });
 
 for (const entry of ['index.html', 'css', 'js', 'img']) {
   await cp(resolve(source, entry), resolve(client, entry), { recursive: true });
 }
+
+await cp(resolve(root, '.openai/hosting.json'), resolve(openai, 'hosting.json'));
 
 await writeFile(resolve(server, 'index.js'), `export default {
   async fetch(request, env) {
