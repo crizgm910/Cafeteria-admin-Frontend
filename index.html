@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TGR Admin - Staff Portal</title>
-    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style.css?v=4">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
 <body class="comfort-view"> <!-- comfort-view by default -->
@@ -14,7 +14,9 @@
             <h1 class="logo" style="font-size:2rem; text-align:center; margin-bottom: 20px;">TGR <span>Staff Portal</span></h1>
             <p style="color:var(--color-text-muted); text-align:center; margin-bottom: 20px;">Acceso restringido a personal autorizado.</p>
             <form id="login-form">
+                <label for="login-email" class="sr-only">Correo Electrónico</label>
                 <input type="email" id="login-email" placeholder="Correo Electrónico" required class="search-input" style="width:100%; margin-bottom:15px; padding:12px;">
+                <label for="login-password" class="sr-only">Contraseña</label>
                 <input type="password" id="login-password" placeholder="Contraseña" required class="search-input" style="width:100%; margin-bottom:20px; padding:12px;">
                 <button type="submit" class="btn-fill" style="width:100%; padding:12px; font-size:1rem;">Ingresar al Sistema</button>
             </form>
@@ -32,15 +34,20 @@
             <button class="btn-refresh" id="btn-manual-refresh" title="Actualizar pedidos ahora">↻</button>
             <span class="current-time" id="current-time">00:00</span>
             <div class="user-role">
-                <span class="role-icon">👤</span> Barista
+                <span class="role-icon">👤</span>
+                <span id="current-user-name">Personal</span>
             </div>
+            <button type="button" class="btn-outline btn-logout" id="btn-logout">Cerrar sesión</button>
         </div>
     </header>
 
     <nav class="admin-nav-main">
         <button class="nav-btn active" id="tab-orders">Pedidos (Kitchen)</button>
-        <button class="nav-btn" id="tab-reservations">Reservas</button>
+        <button class="nav-btn" id="tab-pos">🧾 Punto de Venta</button>
+        <button class="nav-btn" id="tab-reservations" hidden>Reservas</button>
         <button class="nav-btn" id="tab-products">📦 Catálogo y Almacén</button>
+        <button class="nav-btn" id="tab-reports">📊 Reportes y Auditoría</button>
+        <button class="nav-btn" id="tab-users">👥 Usuarios</button>
     </nav>
 
     <main class="admin-container">
@@ -88,12 +95,11 @@
 
             <!-- Buscador y Filtros -->
             <div class="filters-bar">
-                <input type="text" id="search-orders" placeholder="🔍 Buscar por # Pedido, Nombre..." class="search-input">
+                <input type="text" id="search-orders" aria-label="Buscar pedidos por número o nombre" placeholder="🔍 Buscar por # Pedido, Nombre..." class="search-input">
                 <div class="filter-chips" id="order-filters">
                     <button class="filter-btn active" data-filter="all">Todos</button>
                     <button class="filter-btn" data-filter="takeout">Para Recoger</button>
                     <button class="filter-btn" data-filter="dine_in">En Local</button>
-                    <button class="filter-btn" data-filter="delivery">Envío</button>
                     <button class="filter-btn danger-filter" data-filter="overdue">⚠️ Atrasados</button>
                 </div>
                 
@@ -159,8 +165,162 @@
             </div>
         </section>
 
+        <section id="view-pos" class="admin-view">
+            <div class="catalog-header" style="margin-bottom:20px;">
+                <h2 style="margin-bottom:5px;">Punto de Venta</h2>
+                <p style="color:var(--color-text-muted); margin:0;">Venta presencial con total confirmado por Laravel y turno de caja.</p>
+            </div>
+
+            <div id="cash-session-closed" class="kpi-card" style="max-width:520px; margin-bottom:20px;">
+                <h3>Abrir turno de caja</h3>
+                <form id="cash-open-form" style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+                    <label style="flex:1; min-width:180px;">Fondo inicial
+                        <input id="cash-opening-amount" type="number" min="0" step="0.01" value="0" required class="search-input" style="width:100%; margin-top:5px;">
+                    </label>
+                    <button class="btn-primary" type="submit">Abrir caja</button>
+                </form>
+            </div>
+
+            <div id="cash-session-open" hidden>
+                <div class="kpi-container" style="margin-bottom:20px;">
+                    <div class="kpi-card"><span class="kpi-title">Fondo inicial</span><span class="kpi-value" id="pos-opening-cash">$0.00</span></div>
+                    <div class="kpi-card"><span class="kpi-title">Efectivo esperado</span><span class="kpi-value" id="pos-expected-cash">$0.00</span></div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">Movimiento manual</span>
+                        <form id="cash-movement-form" style="display:grid; gap:6px;">
+                            <select id="cash-movement-type" class="search-input"><option value="deposit">Depósito</option><option value="withdrawal">Retiro</option></select>
+                            <input id="cash-movement-amount" class="search-input" type="number" min="0.01" step="0.01" required placeholder="Cantidad">
+                            <input id="cash-movement-note" class="search-input" maxlength="500" required placeholder="Motivo">
+                            <button class="btn-outline" type="submit">Registrar</button>
+                        </form>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-title">Cerrar turno</span>
+                        <form id="cash-close-form" style="display:grid; gap:6px;">
+                            <input id="cash-counted-amount" class="search-input" type="number" min="0" step="0.01" required placeholder="Efectivo contado">
+                            <button class="btn-danger-outline" type="submit">Cerrar caja</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:minmax(0,2fr) minmax(320px,1fr); gap:20px; align-items:start;">
+                    <section class="catalog-subsection">
+                        <h3>Productos vendibles</h3>
+                        <input id="pos-product-search" class="search-input" placeholder="Buscar producto..." style="width:100%; margin-bottom:15px;">
+                        <div id="pos-products-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;"></div>
+                    </section>
+                    <section class="catalog-subsection" style="position:sticky; top:20px;">
+                        <h3>Venta actual</h3>
+                        <div id="pos-cart-items" style="display:grid; gap:10px;"><p style="color:var(--color-text-muted);">Sin productos.</p></div>
+                        <div style="display:flex; justify-content:space-between; font-size:1.4rem; margin:18px 0;"><strong>Total estimado</strong><strong id="pos-cart-total">$0.00</strong></div>
+                        <label>Tipo de pedido
+                            <select id="pos-order-type" class="search-input" style="width:100%; margin:5px 0 10px;"><option value="dine_in">Consumo local</option><option value="takeout">Para llevar</option></select>
+                        </label>
+                        <label>Método de pago
+                            <select id="pos-payment-method" class="search-input" style="width:100%; margin:5px 0 10px;"><option value="cash">Efectivo</option><option value="card_terminal">Terminal externa</option></select>
+                        </label>
+                        <div id="pos-cash-fields">
+                            <label>Efectivo recibido<input id="pos-amount-received" class="search-input" type="number" min="0" step="0.01" style="width:100%; margin:5px 0 10px;"></label>
+                        </div>
+                        <div id="pos-terminal-fields" hidden>
+                            <label>Referencia de terminal<input id="pos-terminal-reference" class="search-input" maxlength="255" style="width:100%; margin:5px 0 10px;"></label>
+                        </div>
+                        <button id="btn-complete-pos-sale" class="btn-primary" type="button" style="width:100%;">Completar venta</button>
+                    </section>
+                </div>
+            </div>
+        </section>
+
         <!-- VISTA RESERVAS -->
         <section id="view-reservations" class="admin-view">
+            <div class="catalog-header reservation-header">
+                <div><h2>Reservaciones, áreas y mesas</h2><p>Administra capacidad y evita asignaciones duplicadas desde Laravel.</p></div>
+                <nav class="catalog-quick-nav" aria-label="Secciones de reservaciones">
+                    <a href="#reservation-areas-admin">Áreas</a><a href="#reservation-tables-admin">Mesas</a><a href="#reservation-schedules-admin">Horarios</a><a href="#reservation-blocks-admin">Bloqueos</a><a href="#reservation-availability-admin">Disponibilidad</a><a href="#reservation-agenda-admin">Agenda</a>
+                </nav>
+            </div>
+
+            <section id="reservation-areas-admin" class="reservation-admin-section">
+                <h3>Áreas de servicio</h3>
+                <form id="service-area-form" class="reservation-inline-form">
+                    <input type="hidden" id="service-area-id">
+                    <label>Nombre<input id="service-area-name" class="search-input" maxlength="120" required></label>
+                    <label>Descripción<input id="service-area-description" class="search-input" maxlength="1000"></label>
+                    <label>Orden<input id="service-area-order" class="search-input" type="number" min="0" value="0"></label>
+                    <label class="check-label"><input id="service-area-active" type="checkbox" checked> Activa</label>
+                    <label class="check-label"><input id="service-area-visible" type="checkbox" checked> Visible</label>
+                    <label class="check-label"><input id="service-area-reservable" type="checkbox" checked> Reservable</label>
+                    <button class="btn-primary" type="submit">Guardar área</button>
+                    <button class="btn-outline" id="service-area-cancel" type="button" hidden>Cancelar edición</button>
+                </form>
+                <div id="service-areas-list" class="reservation-entity-grid"></div>
+            </section>
+
+            <section id="reservation-tables-admin" class="reservation-admin-section">
+                <h3>Mesas</h3>
+                <form id="dining-table-form" class="reservation-inline-form">
+                    <input type="hidden" id="dining-table-id">
+                    <label>Área<select id="dining-table-area" class="search-input" required></select></label>
+                    <label>Código<input id="dining-table-code" class="search-input" maxlength="40" required></label>
+                    <label>Nombre<input id="dining-table-name" class="search-input" maxlength="120"></label>
+                    <label>Capacidad mínima<input id="dining-table-min" class="search-input" type="number" min="1" max="100" value="1" required></label>
+                    <label>Capacidad máxima<input id="dining-table-max" class="search-input" type="number" min="1" max="100" value="4" required></label>
+                    <label>Estado<select id="dining-table-status" class="search-input"><option value="available">Disponible</option><option value="occupied">Ocupada</option><option value="cleaning">Limpieza</option><option value="blocked">Bloqueada</option></select></label>
+                    <label class="check-label"><input id="dining-table-active" type="checkbox" checked> Activa</label>
+                    <label class="check-label"><input id="dining-table-reservable" type="checkbox" checked> Reservable</label>
+                    <button class="btn-primary" type="submit">Guardar mesa</button>
+                    <button class="btn-outline" id="dining-table-cancel" type="button" hidden>Cancelar edición</button>
+                </form>
+                <div id="dining-tables-list" class="reservation-entity-grid"></div>
+            </section>
+
+            <section id="reservation-schedules-admin" class="reservation-admin-section">
+                <h3>Horarios de reservación</h3>
+                <p class="reservation-section-help">Sin área aplica a todo el establecimiento; un horario de área reemplaza al general para ese día.</p>
+                <form id="reservation-schedule-form" class="reservation-inline-form">
+                    <input type="hidden" id="reservation-schedule-id">
+                    <label>Área<select id="reservation-schedule-area" class="search-input"><option value="">Todo el establecimiento</option></select></label>
+                    <label>Día<select id="reservation-schedule-day" class="search-input" required><option value="0">Domingo</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option></select></label>
+                    <label>Apertura<input id="reservation-schedule-open" class="search-input" type="time" value="07:00" required></label>
+                    <label>Cierre<input id="reservation-schedule-close" class="search-input" type="time" value="22:00" required></label>
+                    <label>Intervalo (min)<input id="reservation-schedule-interval" class="search-input" type="number" min="5" max="240" value="30" required></label>
+                    <label>Duración (min)<input id="reservation-schedule-duration" class="search-input" type="number" min="15" max="720" value="90" required></label>
+                    <label>Limpieza (min)<input id="reservation-schedule-cleanup" class="search-input" type="number" min="0" max="240" value="15" required></label>
+                    <label class="check-label"><input id="reservation-schedule-active" type="checkbox" checked> Activo</label>
+                    <button class="btn-primary" type="submit">Guardar horario</button>
+                    <button class="btn-outline" id="reservation-schedule-cancel" type="button" hidden>Cancelar edición</button>
+                </form>
+                <div id="reservation-schedules-list" class="reservation-entity-grid"></div>
+            </section>
+
+            <section id="reservation-blocks-admin" class="reservation-admin-section">
+                <h3>Bloqueos y excepciones</h3>
+                <p class="reservation-section-help">Cierra temporalmente un área completa o una mesa por mantenimiento, evento o día festivo.</p>
+                <form id="reservation-block-form" class="reservation-inline-form">
+                    <input type="hidden" id="reservation-block-id">
+                    <label>Área<select id="reservation-block-area" class="search-input" required></select></label>
+                    <label>Mesa (opcional)<select id="reservation-block-table" class="search-input"><option value="">Toda el área</option></select></label>
+                    <label>Inicio<input id="reservation-block-start" class="search-input" type="datetime-local" required></label>
+                    <label>Fin<input id="reservation-block-end" class="search-input" type="datetime-local" required></label>
+                    <label>Motivo<input id="reservation-block-reason" class="search-input" maxlength="500" required></label>
+                    <label class="check-label"><input id="reservation-block-active" type="checkbox" checked> Activo</label>
+                    <button class="btn-primary" type="submit">Guardar bloqueo</button>
+                    <button class="btn-outline" id="reservation-block-cancel" type="button" hidden>Cancelar edición</button>
+                </form>
+                <div id="reservation-blocks-list" class="reservation-entity-grid"></div>
+            </section>
+
+            <section id="reservation-availability-admin" class="reservation-admin-section">
+                <h3>Consultar disponibilidad</h3>
+                <form id="reservation-availability-form" class="reservation-inline-form">
+                    <label>Fecha<input id="reservation-availability-date" class="search-input" type="date" required></label>
+                    <label>Personas<input id="reservation-availability-guests" class="search-input" type="number" min="1" max="20" value="2" required></label>
+                    <button class="btn-primary" type="submit">Consultar</button>
+                </form>
+                <div id="reservation-availability-result" class="reservation-entity-grid"><div class="empty-state">Selecciona una fecha y capacidad.</div></div>
+            </section>
+
+            <section id="reservation-agenda-admin" class="reservation-admin-section">
             <div class="res-dashboard-top">
                 <div class="kpi-card res-kpi">
                     <span class="kpi-title">Reservas Hoy</span>
@@ -189,6 +349,77 @@
             <div class="reservations-list" id="reservations-list">
                 <!-- JS Rows -->
             </div>
+            </section>
+        </section>
+
+        <section id="view-reports" class="admin-view">
+            <div class="catalog-header" style="margin-bottom:20px;">
+                <h2 style="margin-bottom:5px;">Reportes y Auditoría</h2>
+                <p style="color:var(--color-text-muted); margin:0;">Información calculada por Laravel a partir de pedidos, pagos y caja.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:end; margin-bottom:20px; flex-wrap:wrap;">
+                <label>Fecha<input id="report-date" type="date" class="search-input" style="display:block; margin-top:5px;"></label>
+                <button id="btn-load-report" class="btn-primary" type="button">Consultar</button>
+            </div>
+            <div class="kpi-container" id="server-report-kpis">
+                <div class="kpi-card"><span class="kpi-title">Pedidos</span><span class="kpi-value" id="report-orders">-</span></div>
+                <div class="kpi-card"><span class="kpi-title">Cobros netos</span><span class="kpi-value" id="report-gross">-</span></div>
+                <div class="kpi-card"><span class="kpi-title">Reembolsos</span><span class="kpi-value" id="report-payments">-</span></div>
+                <div class="kpi-card"><span class="kpi-title">Diferencia de caja</span><span class="kpi-value" id="report-cash-difference">-</span></div>
+            </div>
+            <div class="catalog-subsection" style="margin-top:20px;">
+                <h3>Métodos de pago</h3>
+                <div id="report-payment-methods"></div>
+            </div>
+            <div class="catalog-subsection" id="audit-section" style="margin-top:20px;">
+                <h3>Eventos recientes de auditoría</h3>
+                <div class="res-list-container catalog-table-container">
+                    <table class="res-table catalog-table" style="width:100%;">
+                        <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Recurso</th></tr></thead>
+                        <tbody id="audit-table-body"><tr><td colspan="4">Sin consultar.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-users" class="admin-view">
+            <div class="catalog-header" style="margin-bottom:20px;">
+                <h2 style="margin-bottom:5px;">Usuarios y roles</h2>
+                <p style="color:var(--color-text-muted); margin:0;">Cuentas internas administradas por Laravel. Los permisos se asignan mediante roles.</p>
+            </div>
+            <div id="users-layout" style="display:grid; grid-template-columns:minmax(280px,1fr) minmax(0,2fr); gap:20px; align-items:start;">
+                <section class="catalog-subsection">
+                    <h3 id="user-form-title">Nuevo usuario</h3>
+                    <form id="user-form" style="display:grid; gap:12px;">
+                        <input id="user-id" type="hidden">
+                        <label>Nombre<input id="user-name" class="search-input" required maxlength="255" style="width:100%; margin-top:5px;"></label>
+                        <label>Correo<input id="user-email" class="search-input" type="email" required maxlength="255" style="width:100%; margin-top:5px;"></label>
+                        <label>Contraseña <small id="user-password-help">(mínimo 10 caracteres)</small><input id="user-password" class="search-input" type="password" minlength="10" style="width:100%; margin-top:5px;"></label>
+                        <label>Confirmar contraseña<input id="user-password-confirmation" class="search-input" type="password" minlength="10" style="width:100%; margin-top:5px;"></label>
+                        <fieldset style="border:1px solid var(--color-border); padding:12px; border-radius:8px;">
+                            <legend>Roles</legend>
+                            <div id="user-role-options" style="display:grid; gap:8px;">Cargando...</div>
+                        </fieldset>
+                        <label><input id="user-active" type="checkbox" checked> Cuenta activa</label>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-primary" type="submit">Guardar</button>
+                            <button class="btn-outline" id="btn-cancel-user-edit" type="button" hidden>Cancelar edición</button>
+                        </div>
+                    </form>
+                </section>
+                <section class="catalog-subsection">
+                    <div class="catalog-subsection-header">
+                        <div><h3>Personal registrado</h3><p>Desactivar conserva la trazabilidad histórica y revoca sus sesiones.</p></div>
+                        <input id="user-search" class="search-input" placeholder="Buscar nombre o correo...">
+                    </div>
+                    <div class="res-list-container catalog-table-container">
+                        <table class="res-table catalog-table" style="width:100%;">
+                            <thead><tr><th>Nombre</th><th>Correo</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr></thead>
+                            <tbody id="users-table-body"><tr><td colspan="5">Sin consultar.</td></tr></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
         </section>
 
         <!-- VISTA PRODUCTOS -->
@@ -196,6 +427,71 @@
             <div class="catalog-header" style="margin-bottom: 25px;">
                 <h2 style="font-size: 1.8rem; margin-bottom: 5px; color: var(--color-gold);">Gestión de Catálogo</h2>
                 <p style="color: var(--color-text-muted); font-size: 0.95rem; margin-top: 0;">Administra productos, precios y disponibilidad del menú.</p>
+            </div>
+
+            <nav class="catalog-quick-nav" aria-label="Navegación rápida del catálogo">
+                <span>Ir a:</span>
+                <button type="button" class="catalog-quick-nav__button active" data-catalog-target="section-categories">Categorías</button>
+                <button type="button" class="catalog-quick-nav__button" data-catalog-target="section-addons">Complementos</button>
+                <button type="button" class="catalog-quick-nav__button" data-catalog-target="section-products">Productos</button>
+                <button type="button" class="catalog-quick-nav__button" data-catalog-target="section-inventory">Inventario</button>
+            </nav>
+
+            <div class="catalog-subsection catalog-scroll-target" id="section-categories">
+                <div class="catalog-subsection-header">
+                    <div>
+                        <h3>Categorías</h3>
+                        <p>Organiza las secciones visibles del menú público.</p>
+                    </div>
+                    <button class="btn-primary" id="btn-new-category">➕ Nueva Categoría</button>
+                </div>
+                <div class="res-list-container catalog-table-container">
+                    <table class="res-table catalog-table" id="categories-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">Categoría</th>
+                                <th style="width: 25%;">Slug</th>
+                                <th style="width: 15%;">Productos</th>
+                                <th style="width: 15%;">Estado</th>
+                                <th style="width: 10%; text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categories-table-body">
+                            <tr><td colspan="5" class="catalog-empty-state">Cargando categorías...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="catalog-subsection catalog-scroll-target" id="section-addons" style="margin-top:25px;">
+                <div class="catalog-subsection-header">
+                    <div>
+                        <h3>Complementos</h3>
+                        <p>Administra opciones adicionales, precios y consumos de inventario.</p>
+                    </div>
+                    <button class="btn-primary" id="btn-new-addon" type="button">➕ Nuevo Complemento</button>
+                </div>
+                <div class="catalog-toolbar" style="display:flex; gap:15px; margin-bottom:18px; flex-wrap:wrap;">
+                    <input id="search-addons" class="search-input" placeholder="Buscar complemento..." style="flex:1; min-width:240px;">
+                    <select id="filter-addon-status" class="search-input">
+                        <option value="all">Todos los estados</option>
+                        <option value="active">Activos</option>
+                        <option value="inactive">Inactivos</option>
+                    </select>
+                </div>
+                <div class="res-list-container catalog-table-container">
+                    <table class="res-table catalog-table" id="addons-table" style="width:100%;">
+                        <thead><tr><th>Complemento</th><th>Precio</th><th>Consumo</th><th>Uso</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody id="addons-table-body"><tr><td colspan="6" class="catalog-empty-state">Cargando complementos...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="catalog-subsection-header catalog-products-header catalog-scroll-target" id="section-products">
+                <div>
+                    <h3>Productos</h3>
+                    <p>Administra los artículos que se venden en la cafetería.</p>
+                </div>
             </div>
             
             <div class="catalog-toolbar" style="display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; align-items: center;">
@@ -205,9 +501,6 @@
                 <div>
                     <select id="filter-category" class="search-input" style="padding: 10px 15px; cursor: pointer;">
                         <option value="all">Todas las categorías</option>
-                        <option value="1">Bebidas Calientes</option>
-                        <option value="2">Bebidas Frías</option>
-                        <option value="3">Postres</option>
                     </select>
                 </div>
                 <div>
@@ -240,7 +533,7 @@
             </div>
         <div style="margin: 60px 0; border-top: 1px dashed rgba(255,255,255,0.2);"></div>
         <!-- VISTA INVENTARIO (AHORA INTEGRADA) -->
-        <div id="section-inventory">
+        <div id="section-inventory" class="catalog-scroll-target">
             <div class="catalog-header" style="margin-bottom: 25px;">
                 <h2 style="font-size: 1.8rem; margin-bottom: 5px; color: var(--color-gold);">Almacén e Inventario</h2>
                 <p style="color: var(--color-text-muted); font-size: 0.95rem; margin-top: 0;">Gestiona los insumos, niveles de stock y registra mermas o reabastecimientos.</p>
@@ -281,7 +574,7 @@
         </div>
         <div style="height: 80px;"></div> <!-- Spacer para que el botón no tape el último elemento -->
 
-        <button onclick="document.querySelector('.admin-view.active-view').scrollTo({top:0, behavior: 'smooth'})" style="position: fixed; bottom: 30px; right: 30px; background: var(--color-gold); color: #000; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 1000;" title="Volver arriba">
+        <button id="btn-scroll-top" style="position: fixed; bottom: 30px; right: 30px; background: var(--color-gold); color: #000; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 1000;" title="Volver arriba">
             ⬆️
         </button>
         </section>
@@ -290,11 +583,11 @@
     </section>
 
     <!-- Modal Completados -->
-    <div id="completed-modal" class="modal-overlay">
+    <div id="completed-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Pedidos completados" aria-hidden="true">
         <div class="modal-content detail-modal">
             <div class="modal-header">
                 <h2>Pedidos Completados de Hoy</h2>
-                <button class="close-modal" id="close-completed-modal">&times;</button>
+                <button class="close-modal" id="close-completed-modal" aria-label="Cerrar pedidos completados">&times;</button>
             </div>
             <div class="modal-body">
                 <div id="completed-list" style="display:grid; grid-template-columns: 1fr; gap:10px;">
@@ -305,11 +598,11 @@
     </div>
 
     <!-- Modal Detalles del Pedido -->
-    <div id="order-detail-modal" class="modal-overlay">
+    <div id="order-detail-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Detalle del pedido" aria-hidden="true">
         <div class="modal-content detail-modal">
             <div class="modal-header">
                 <h2>Detalle del Pedido <span id="modal-ticket-id">#000</span></h2>
-                <button class="close-modal" id="close-detail-modal">&times;</button>
+                <button class="close-modal" id="close-detail-modal" aria-label="Cerrar detalle del pedido">&times;</button>
             </div>
             <div class="modal-body" id="modal-detail-body">
                 <!-- JS Render -->
@@ -321,67 +614,103 @@
     </div>
 
     <!-- Modal Ticket de Cocina -->
-    <div id="kitchen-ticket-modal" class="modal-overlay">
+    <div id="kitchen-ticket-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Comprobante del pedido" aria-hidden="true">
         <div class="modal-content kitchen-modal">
             <div class="modal-header no-print">
                 <h2 style="color:black">Vista de Impresión</h2>
-                <button class="close-modal" id="close-kitchen-modal" style="color:black">&times;</button>
+                <button class="close-modal" id="close-kitchen-modal" style="color:black" aria-label="Cerrar comprobante">&times;</button>
             </div>
             <div class="kitchen-ticket-body" id="kitchen-ticket-body">
                 <!-- JS Render Formato Simple -->
             </div>
             <div class="modal-footer no-print">
-                <button class="btn-primary" onclick="window.print()">🖨️ Imprimir Ticket</button>
+                <button class="btn-primary" id="btn-print-ticket">🖨️ Imprimir Ticket</button>
             </div>
         </div>
     </div>
 
     <!-- Toast Notifications -->
-    <div id="toast-container" class="toast-container"></div>
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Modal Categoría -->
+    <div id="category-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Categoría" aria-hidden="true">
+        <div class="modal-content catalog-modal-content" style="max-width: 780px; display: flex; flex-direction: column; max-height:90vh;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                <h2 id="category-modal-title" style="margin: 0; color: var(--color-gold);">Nueva Categoría</h2>
+                <button class="close-modal" id="close-category-modal" aria-label="Cerrar categoría">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px 0; overflow-y:auto;">
+                <form id="category-form">
+                    <input type="hidden" id="category-id">
+                    <div style="margin-bottom:15px; padding: 0 20px;">
+                        <label for="category-name" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Nombre:</label>
+                        <input type="text" id="category-name" maxlength="100" required class="search-input" style="width:100%;" autocomplete="off">
+                        <small style="display:block; margin-top:6px; color:var(--color-text-muted);">El identificador URL se genera automáticamente.</small>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px; padding: 10px 20px; background: rgba(255,255,255,0.03); border-radius: 4px; margin: 0 20px;">
+                        <input type="checkbox" id="category-active" checked style="width: 18px; height: 18px; accent-color: var(--color-gold);">
+                        <label for="category-active" style="cursor: pointer; user-select: none;">Categoría activa y visible en el menú</label>
+                    </div>
+                    <section style="margin:20px; padding-top:18px; border-top:1px solid rgba(255,255,255,.1);">
+                          <h3 style="margin:0;">Complementos predeterminados</h3>
+                          <p style="color:var(--color-text-muted); margin:5px 0 12px;">Los productos de esta categoría heredarán estas opciones, salvo que tengan una excepción propia.</p>
+                          <div class="category-addon-picker">
+                              <select id="category-addon-picker" class="search-input" aria-label="Complemento para agregar"></select>
+                              <button type="button" id="btn-add-category-addon" class="btn-outline">Agregar complemento</button>
+                          </div>
+                          <div id="category-addons-list" class="configuration-list"></div>
+                          <p id="category-addons-summary" style="color:var(--color-gold); margin:12px 0 0;">0 disponibles</p>
+                    </section>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-outline" id="btn-cancel-category">Cancelar</button>
+                  <button type="submit" form="category-form" id="btn-save-category" class="btn-primary">Guardar Categoría</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Producto -->
-    <div id="product-modal" class="modal-overlay">
+    <div id="product-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Producto" aria-hidden="true">
         <div class="modal-content catalog-modal-content" style="max-width: 500px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
                 <h2 id="product-modal-title" style="margin: 0; color: var(--color-gold);">Nuevo Producto</h2>
-                <button class="close-modal" id="close-product-modal">&times;</button>
+                <button class="close-modal" id="close-product-modal" aria-label="Cerrar producto">&times;</button>
             </div>
             
             <div class="modal-body" style="padding: 20px 0; overflow-y: auto; flex: 1;">
                 <form id="product-form">
                     <input type="hidden" id="prod-id">
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Nombre del Producto:</label>
+                        <label for="prod-name" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Nombre del Producto:</label>
                         <input type="text" id="prod-name" required class="search-input" style="width:100%;">
                     </div>
                     
                     <div style="margin-bottom:15px; display:flex; gap:15px; padding: 0 20px;">
                         <div style="flex:1;">
-                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">SKU:</label>
+                            <label for="prod-sku" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">SKU:</label>
                             <input type="text" id="prod-sku" required class="search-input" style="width:100%; text-transform: uppercase;">
                         </div>
                         <div style="flex:1;">
-                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Precio ($):</label>
+                            <label for="prod-price" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Precio ($):</label>
                             <input type="number" step="0.01" id="prod-price" required class="search-input" style="width:100%;">
                         </div>
                     </div>
                     
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Categoría:</label>
-                        <select id="prod-category" class="search-input" style="width:100%;" required>
-                            <option value="1">Bebidas Calientes</option>
-                            <option value="2">Bebidas Frías</option>
-                            <option value="3">Postres</option>
+                        <label for="prod-category" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Categoría:</label>
+                    <select id="prod-category" class="search-input" style="width:100%;" required>
+                            <option value="">Cargando categorías...</option>
                         </select>
                     </div>
                     
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">URL de la Imagen:</label>
+                        <label for="prod-image" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">URL de la Imagen:</label>
                         <input type="text" id="prod-image" placeholder="ej. img/premium_latte.png" class="search-input" style="width:100%;">
                     </div>
                     
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Descripción (Opcional):</label>
+                        <label for="prod-desc" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Descripción (Opcional):</label>
                         <textarea id="prod-desc" class="search-input" style="width:100%; height:80px; resize:vertical;"></textarea>
                     </div>
                     
@@ -400,28 +729,105 @@
     </div>
 
     <!-- Modal Ingrediente (Inventario) -->
-    <div id="ingredient-modal" class="modal-overlay">
+    <div id="product-config-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Configuración del producto" aria-hidden="true">
+        <div class="modal-content catalog-modal-content" style="max-width: 760px; display:flex; flex-direction:column; max-height:90vh;">
+            <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                <div>
+                    <h2 style="margin:0; color:var(--color-gold);">Receta y complementos</h2>
+                    <p id="config-product-name" style="margin:4px 0 0; color:var(--color-text-muted);"></p>
+                </div>
+                <button class="close-modal" id="close-product-config-modal" aria-label="Cerrar configuración">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px 0; overflow-y:auto;">
+                <input type="hidden" id="config-product-id">
+                <section>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                        <div>
+                            <h3 style="margin:0;">Receta mínima</h3>
+                            <p style="color:var(--color-text-muted); margin:4px 0;">Un producto sin receta no se mostrará como vendible.</p>
+                        </div>
+                        <button type="button" class="btn-outline" id="btn-add-recipe-row">➕ Insumo</button>
+                    </div>
+                    <div id="recipe-rows" style="display:grid; gap:10px; margin-top:15px;"></div>
+                    <button type="button" class="btn-primary" id="btn-save-recipe" style="margin-top:15px;">Guardar receta</button>
+                </section>
+
+                <section style="margin-top:30px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1);">
+                    <h3 style="margin:0;">Complementos permitidos</h3>
+                    <p style="color:var(--color-text-muted); margin:4px 0 12px;">Hereda la categoría o crea excepciones de visibilidad, precio, orden, selección inicial y consumo.</p>
+                    <div id="product-addons-list" style="display:grid; gap:8px;"></div>
+                    <button type="button" class="btn-primary" id="btn-save-product-addons" style="margin-top:15px;">Guardar complementos</button>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="addon-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Complemento" aria-hidden="true">
+        <div class="modal-content catalog-modal-content" style="max-width:720px; display:flex; flex-direction:column; max-height:90vh;">
+            <div class="modal-header">
+                <h2 id="addon-modal-title" style="margin:0; color:var(--color-gold);">Nuevo Complemento</h2>
+                <button class="close-modal" id="close-addon-modal" aria-label="Cerrar complemento">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y:auto; padding:20px 0;">
+                <form id="add-on-form" class="addon-crud-form">
+                    <input type="hidden" id="addon-id">
+                    <label>Nombre<input class="search-input" id="addon-name" maxlength="100" required></label>
+                    <label>Precio adicional<input class="search-input" id="addon-price" type="number" min="0" step="0.01" required></label>
+                    <label class="addon-form-wide">Descripción<textarea class="search-input" id="addon-description" maxlength="500" rows="3"></textarea></label>
+                    <label class="addon-checkbox-label"><input type="checkbox" id="addon-public-visible" checked> Visible al cliente</label>
+                    <label class="addon-checkbox-label"><input type="checkbox" id="addon-active" checked> Activo</label>
+                    <label>Orden<input class="search-input" id="addon-sort-order" type="number" min="0" value="0"></label>
+                    <div class="addon-form-wide addon-recipe-heading">
+                        <div><strong>Consumo de inventario</strong><p>Insumos descontados cada vez que se vende este complemento.</p></div>
+                        <button type="button" class="btn-outline" id="btn-add-addon-recipe-row">➕ Consumo</button>
+                    </div>
+                    <div id="addon-recipe-rows" class="addon-form-wide" style="display:grid; gap:8px;"></div>
+                </form>
+            </div>
+            <div class="modal-footer addon-modal-footer">
+                <button type="button" class="btn-outline" id="btn-cancel-addon">Cancelar</button>
+                <button type="submit" form="add-on-form" class="btn-primary" id="btn-save-addon">Guardar Complemento</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pos-addon-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Personalizar venta POS" aria-hidden="true">
+        <div class="modal-content catalog-modal-content" style="max-width:560px; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <div><h2 style="margin:0; color:var(--color-gold);">Personalizar producto</h2><p id="pos-addon-product-name" style="margin:4px 0 0;"></p></div>
+                <button class="close-modal" id="close-pos-addon-modal" aria-label="Cerrar personalización POS">&times;</button>
+            </div>
+            <div class="modal-body"><div id="pos-addon-list" class="configuration-list"></div></div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn-outline" id="cancel-pos-addon">Cancelar</button>
+                <button type="button" class="btn-primary" id="confirm-pos-addon">Agregar a venta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ingredient-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Insumo" aria-hidden="true">
         <div class="modal-content catalog-modal-content" style="max-width: 500px; display: flex; flex-direction: column;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
                 <h2 id="ingredient-modal-title" style="margin: 0; color: var(--color-gold);">Nuevo Insumo</h2>
-                <button class="close-modal" id="close-ingredient-modal">&times;</button>
+                <button class="close-modal" id="close-ingredient-modal" aria-label="Cerrar insumo">&times;</button>
             </div>
             
             <div class="modal-body" style="padding: 20px 0; flex: 1;">
                 <form id="ingredient-form">
                     <input type="hidden" id="ing-id">
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Nombre del Insumo:</label>
+                        <label for="ing-name" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Nombre del Insumo:</label>
                         <input type="text" id="ing-name" required class="search-input" style="width:100%;">
                     </div>
                     
                     <div style="margin-bottom:15px; display:flex; gap:15px; padding: 0 20px;">
                         <div style="flex:1;">
-                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">SKU:</label>
+                            <label for="ing-sku" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">SKU:</label>
                             <input type="text" id="ing-sku" required class="search-input" style="width:100%; text-transform: uppercase;">
                         </div>
                         <div style="flex:1;">
-                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">U. de Medida:</label>
+                            <label for="ing-unit" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">U. de Medida:</label>
                             <select id="ing-unit" class="search-input" style="width:100%;" required>
                                 <option value="Kg">Kilogramos (Kg)</option>
                                 <option value="Gr">Gramos (Gr)</option>
@@ -434,11 +840,11 @@
                     
                     <div style="margin-bottom:15px; display:flex; gap:15px; padding: 0 20px;">
                         <div style="flex:1;">
-                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Stock Mínimo (Alerta):</label>
+                            <label for="ing-min-stock" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Stock Mínimo (Alerta):</label>
                             <input type="number" step="0.01" id="ing-min-stock" required class="search-input" style="width:100%;">
                         </div>
                         <div style="flex:1;">
-                            <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Costo por Unidad ($):</label>
+                            <label for="ing-cost" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Costo por Unidad ($):</label>
                             <input type="number" step="0.01" id="ing-cost" required class="search-input" style="width:100%;">
                         </div>
                     </div>
@@ -453,11 +859,11 @@
     </div>
 
     <!-- Modal Transacción de Inventario -->
-    <div id="transaction-modal" class="modal-overlay">
+    <div id="transaction-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Movimiento de inventario" aria-hidden="true">
         <div class="modal-content catalog-modal-content" style="max-width: 450px;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
                 <h2 style="margin: 0; color: var(--color-gold);">Registrar Movimiento</h2>
-                <button class="close-modal" id="close-transaction-modal">&times;</button>
+                <button class="close-modal" id="close-transaction-modal" aria-label="Cerrar movimiento">&times;</button>
             </div>
             
             <div class="modal-body" style="padding: 20px 0;">
@@ -469,7 +875,7 @@
                     </div>
 
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Tipo de Movimiento:</label>
+                        <label for="trans-type" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Tipo de Movimiento:</label>
                         <select id="trans-type" class="search-input" style="width:100%;" required>
                             <option value="restock">Entrada (Reabastecimiento)</option>
                             <option value="waste">Salida (Merma / Desperdicio)</option>
@@ -478,8 +884,16 @@
                     </div>
 
                     <div style="margin-bottom:15px; padding: 0 20px;">
-                        <label style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Cantidad a <span id="lbl-trans-action">sumar</span>:</label>
+                        <label for="trans-qty" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Cantidad a <span id="lbl-trans-action">sumar</span>:</label>
                         <input type="number" step="0.01" id="trans-qty" required class="search-input" style="width:100%;">
+                    </div>
+                    <div style="margin-bottom:15px; padding: 0 20px;">
+                        <label for="trans-reason" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Motivo:</label>
+                        <input id="trans-reason" required maxlength="120" class="search-input" style="width:100%;" placeholder="Compra, caducidad, conteo físico…">
+                    </div>
+                    <div style="margin-bottom:15px; padding: 0 20px;">
+                        <label for="trans-notes" style="display:block; margin-bottom: 5px; color: var(--color-text-muted);">Observaciones (opcional):</label>
+                        <textarea id="trans-notes" maxlength="1000" class="search-input" style="width:100%; min-height:70px;"></textarea>
                     </div>
                 </form>
             </div>
@@ -491,6 +905,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js?v=5"></script>
 </body>
 </html>

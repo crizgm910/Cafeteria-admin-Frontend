@@ -1,0 +1,9 @@
+{
+  "name": "tgr-admin-sites",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}
+
